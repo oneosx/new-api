@@ -1,0 +1,268 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+/*
+ * Advanced 3D Orbit & Particle animation styles.
+ * Crisp, clean, Solarized-integrated without square backgrounds.
+ */
+
+@keyframes orbit-spin {
+  0% {
+    transform: translate(-50%, -50%) rotate(12deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(372deg);
+  }
+}
+
+@keyframes orbit-spin-reverse {
+  0% {
+    transform: translate(-50%, -50%) rotate(104deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(-256deg);
+  }
+}
+
+@keyframes orbit-network-flow {
+  to {
+    stroke-dashoffset: -72;
+  }
+}
+
+@keyframes orbit-halo-breathe {
+  0%, 100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+@keyframes orbit-core-pulse {
+  0%, 100% {
+    box-shadow: 0 16px 36px rgba(0, 43, 54, 0.12), 0 0 0 0 rgba(38, 139, 210, 0.2);
+  }
+  50% {
+    box-shadow: 0 24px 50px rgba(0, 43, 54, 0.18), 0 0 0 18px rgba(38, 139, 210, 0);
+  }
+}
+
+@keyframes orbit-node-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes orbit-node-signal {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+
+@keyframes orbit-pulse-glow {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+}
+
+/* Data comet along the network */
+@keyframes orbit-comet-travel-1 {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+.orbit-halo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.85), rgba(238, 232, 213, 0.25) 52%, transparent 70%);
+  transform: translate(-50%, -50%);
+  animation: orbit-halo-breathe 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.dark .orbit-halo {
+  background: radial-gradient(circle, rgba(7, 54, 66, 0.5), rgba(0, 43, 54, 0.15) 55%, transparent 72%);
+}
+
+.orbit-ring-outer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 92%;
+  height: 54%;
+  border: 1px solid rgba(101, 123, 131, 0.28);
+  border-radius: 50%;
+  animation: orbit-spin 20s linear infinite;
+  pointer-events: none;
+}
+
+.orbit-ring-outer::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fdf6e3;
+  border-radius: 50%;
+  background: #cb4b16;
+  box-shadow: 0 0 0 1px rgba(0, 43, 54, 0.15), 0 0 18px rgba(203, 75, 22, 0.45);
+}
+
+.orbit-ring-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 62%;
+  height: 80%;
+  border: 1px solid rgba(101, 123, 131, 0.25);
+  border-radius: 50%;
+  animation: orbit-spin-reverse 15s linear infinite;
+  pointer-events: none;
+}
+
+.orbit-ring-inner::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fdf6e3;
+  border-radius: 50%;
+  background: #859900;
+  box-shadow: 0 0 0 1px rgba(0, 43, 54, 0.15), 0 0 18px rgba(133, 153, 0, 0.45);
+}
+
+.orbit-network-path {
+  stroke: rgba(101, 123, 131, 0.32);
+  stroke-width: 1.2;
+  stroke-dasharray: 6 8;
+  animation: orbit-network-flow 6.5s linear infinite;
+}
+
+.orbit-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  width: 108px;
+  height: 108px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(101, 123, 131, 0.22);
+  border-radius: 50%;
+  background: rgba(253, 246, 227, 0.95);
+  box-shadow: 0 18px 40px rgba(0, 43, 54, 0.12);
+  backdrop-filter: blur(12px);
+  transform: translate(-50%, -50%);
+  animation: orbit-core-pulse 4s ease-in-out infinite;
+  user-select: none;
+}
+
+.dark .orbit-core {
+  background: rgba(7, 54, 66, 0.95);
+  border-color: rgba(147, 161, 161, 0.25);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.orbit-node {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(101, 123, 131, 0.2);
+  border-radius: 50%;
+  background: rgba(253, 246, 227, 0.96);
+  box-shadow: 0 12px 28px rgba(0, 43, 54, 0.1);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.25s ease;
+  animation: orbit-node-float 4.2s ease-in-out infinite;
+}
+
+.dark .orbit-node {
+  background: rgba(7, 54, 66, 0.96);
+  border-color: rgba(147, 161, 161, 0.25);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+
+.orbit-node:hover {
+  transform: translateY(-6px) scale(1.1) !important;
+  box-shadow: 0 20px 48px rgba(0, 43, 54, 0.2), 0 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.dark .orbit-node:hover {
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 0 0 6px rgba(7, 54, 66, 0.6);
+}
+
+.orbit-node.is-active::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  opacity: 0;
+  animation: orbit-node-signal 2.8s ease-out infinite;
+}
+
+.orbit-pulse-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid #fdf6e3;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 43, 54, 0.2);
+  animation: orbit-pulse-glow 3.2s ease-in-out infinite;
+}

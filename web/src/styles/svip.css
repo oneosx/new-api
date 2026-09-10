@@ -1,0 +1,138 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+
+/*
+ * SVIP theme preset — Solarized palette.
+ *
+ * Designed with the precision of Ethan Schoonover's Solarized color system,
+ * providing optimal contrast and visual harmony across light and dark modes.
+ *
+ * Light mode (Solarized Light):
+ *   - Canvas: base3 (#fdf6e3) warm cream
+ *   - Foreground: base00 (#657b83) / base01 (#586e75)
+ *   - Card / Surfaces: base2 (#eee8d5)
+ *
+ * Dark mode (Solarized Dark):
+ *   - Canvas: base03 (#002b36) deep blue-cyan
+ *   - Foreground: base0 (#839496) / base1 (#93a1a1)
+ *   - Card / Surfaces: base02 (#073642)
+ *
+ * Accents:
+ *   - Primary: Solarized Blue (#268bd2)
+ *   - Destructive: Solarized Red (#dc322f)
+ *   - Success: Solarized Green (#859900)
+ *   - Warning: Solarized Yellow (#b58900)
+ *   - Info: Solarized Cyan (#2aa198)
+ */
+
+body:not([data-theme-preset]),
+[data-theme-preset='svip'] {
+  --background: oklch(0.9735 0.0261 90.1);
+  --foreground: oklch(0.42 0.03 222);
+  --card: oklch(0.942 0.022 91.5);
+  --card-foreground: oklch(0.42 0.03 222);
+  --popover: oklch(0.96 0.024 91);
+  --popover-foreground: oklch(0.42 0.03 222);
+  --primary: oklch(0.5808 0.1732 39.5);
+  --primary-foreground: oklch(0.98 0.015 90);
+  --secondary: oklch(0.9306 0.026 92.4);
+  --secondary-foreground: oklch(0.42 0.03 222);
+  --muted: oklch(0.9306 0.026 92.4);
+  --muted-foreground: oklch(0.523 0.0283 219.14);
+  --accent: color-mix(in oklch, var(--primary) 12%, var(--background));
+  --accent-foreground: oklch(0.42 0.03 222);
+  --destructive: oklch(0.5863 0.2064 27.12);
+  --destructive-foreground: oklch(0.98 0.015 90);
+  --success: oklch(0.6444 0.1508 118.6);
+  --success-foreground: oklch(0.98 0.015 90);
+  --warning: oklch(0.6545 0.134 85.72);
+  --warning-foreground: oklch(0.2673 0.0486 219.82);
+  --info: oklch(0.6437 0.1019 187.38);
+  --info-foreground: oklch(0.98 0.015 90);
+  --neutral: oklch(0.523 0.0283 219.14);
+  --neutral-foreground: oklch(0.42 0.03 222);
+  --border: oklch(0.885 0.025 92);
+  --input: oklch(0.885 0.025 92);
+  --ring: oklch(0.5808 0.1732 39.5);
+  --chart-1: oklch(0.5808 0.1732 39.5);
+  --chart-2: oklch(0.6437 0.1019 187.38);
+  --chart-3: oklch(0.6444 0.1508 118.6);
+  --chart-4: oklch(0.6545 0.134 85.72);
+  --chart-5: oklch(0.6149 0.1394 244.93);
+  --overview-accent-1: oklch(0.5808 0.1732 39.5);
+  --overview-accent-2: oklch(0.6437 0.1019 187.38);
+  --overview-accent-3: oklch(0.6444 0.1508 118.6);
+  --sidebar: oklch(0.945 0.024 91.5);
+  --sidebar-foreground: oklch(0.42 0.03 222);
+  --sidebar-primary: oklch(0.5808 0.1732 39.5);
+  --sidebar-primary-foreground: oklch(0.98 0.015 90);
+  --sidebar-accent: color-mix(in oklch, var(--primary) 12%, var(--background));
+  --sidebar-accent-foreground: oklch(0.42 0.03 222);
+  --sidebar-border: oklch(0.885 0.025 92);
+  --sidebar-ring: oklch(0.5808 0.1732 39.5);
+  --skeleton-base: oklch(0.92 0.025 92);
+  --skeleton-highlight: oklch(0.96 0.025 91);
+  --radius: 0.25rem;
+}
+
+.dark body:not([data-theme-preset]),
+.dark [data-theme-preset='svip'] {
+  --background: oklch(0.2673 0.0486 219.82);
+  --foreground: oklch(0.85 0.02 205);
+  --card: oklch(0.3092 0.0518 219.65);
+  --card-foreground: oklch(0.85 0.02 205);
+  --popover: oklch(0.335 0.05 219.6);
+  --popover-foreground: oklch(0.85 0.02 205);
+  --primary: oklch(0.62 0.18 41);
+  --primary-foreground: oklch(0.98 0.015 90);
+  --secondary: oklch(0.3092 0.0518 219.65);
+  --secondary-foreground: oklch(0.85 0.02 205);
+  --muted: oklch(0.3092 0.0518 219.65);
+  --muted-foreground: oklch(0.6537 0.0197 205.26);
+  --accent: color-mix(in oklch, var(--primary) 20%, var(--background));
+  --accent-foreground: oklch(0.92 0.016 197);
+  --destructive: oklch(0.62 0.19 27.12);
+  --destructive-foreground: oklch(0.98 0.015 90);
+  --success: oklch(0.66 0.145 118.6);
+  --success-foreground: oklch(0.98 0.015 90);
+  --warning: oklch(0.67 0.13 85.72);
+  --warning-foreground: oklch(0.2673 0.0486 219.82);
+  --info: oklch(0.6437 0.1019 187.38);
+  --info-foreground: oklch(0.98 0.015 90);
+  --neutral: oklch(0.6537 0.0197 205.26);
+  --neutral-foreground: oklch(0.85 0.02 205);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.62 0.18 41);
+  --chart-1: oklch(0.62 0.18 41);
+  --chart-2: oklch(0.6437 0.1019 187.38);
+  --chart-3: oklch(0.6444 0.1508 118.6);
+  --chart-4: oklch(0.6545 0.134 85.72);
+  --chart-5: oklch(0.6149 0.1394 244.93);
+  --sidebar: oklch(0.245 0.045 220);
+  --sidebar-foreground: oklch(0.85 0.02 205);
+  --sidebar-primary: oklch(0.62 0.18 41);
+  --sidebar-primary-foreground: oklch(0.98 0.015 90);
+  --sidebar-accent: color-mix(in oklch, var(--primary) 20%, var(--background));
+  --sidebar-accent-foreground: oklch(0.92 0.016 197);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.62 0.18 41);
+  --skeleton-base: oklch(0.3092 0.0518 219.65);
+  --skeleton-highlight: oklch(0.37 0.048 219.6);
+}

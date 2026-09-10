@@ -186,32 +186,31 @@ export function PublicHeader(props: PublicHeaderProps) {
             className={cn(
               'flex items-center justify-between transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
               scrolled
-                ? 'bg-background/60 ring-border/50 h-12 rounded-2xl pr-1.5 pl-4 shadow-[0_2px_16px_-6px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.02)] ring-[0.5px] backdrop-blur-2xl dark:shadow-[0_2px_16px_-6px_rgba(0,0,0,0.4)]'
+                ? 'bg-background/60 ring-border/50 h-12 rounded-2xl pr-1.5 pl-4 shadow-[0_2px_16px_-6px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.02)] ring-[0.5px] backdrop-blur-2xl transition-shadow duration-300 hover:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_16px_-6px_rgba(0,0,0,0.4)] dark:hover:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.6)]'
                 : 'h-16 px-2'
             )}
           >
             {/* Logo */}
             <Link
               to={homeUrl}
-              className='group flex shrink-0 items-center gap-2.5'
+              className='group flex shrink-0 items-center'
+              aria-label={displaySiteName}
             >
-              <div className='flex size-7 shrink-0 items-center justify-center transition-all duration-300 group-hover:scale-105'>
+              <div className='flex h-6 max-h-6 max-w-[150px] items-center justify-center transition-all duration-300 group-hover:scale-105'>
                 {loading ? (
-                  <Skeleton className='size-full rounded-lg' />
+                  <Skeleton className='h-6 w-24 rounded-md' />
                 ) : customLogo ? (
                   customLogo
                 ) : (
                   <HeaderLogo
                     src={systemLogo}
+                    darkSrc='/logo.white.png'
                     loading={loading}
                     logoLoaded={logoLoaded}
-                    className='size-full rounded-lg object-contain'
+                    className='h-6 max-h-6 w-auto max-w-[150px] rounded-none object-contain'
                   />
                 )}
               </div>
-              <span className='text-sm font-semibold tracking-tight'>
-                {loading ? <Skeleton className='h-4 w-16' /> : displaySiteName}
-              </span>
             </Link>
 
             {/* Desktop nav */}
@@ -287,7 +286,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                   ) : (
                     <Button
                       size='sm'
-                      className='h-8 rounded-lg px-3.5 text-xs font-medium'
+                      className='h-8 rounded px-3.5 text-xs font-medium'
                       render={<Link to='/sign-in' />}
                     >
                       {t('Sign in')}

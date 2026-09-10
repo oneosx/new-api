@@ -25,6 +25,11 @@ For commercial licensing, please contact support@quantumnous.com
 
 export const THEME_PRESETS = [
   {
+    value: 'svip',
+    name: 'SVIP',
+    swatches: ['oklch(0.5808 0.1732 39.5)', 'oklch(0.6545 0.134 85.72)'],
+  },
+  {
     value: 'default',
     name: 'Default',
     swatches: ['oklch(0.72 0.18 250)', 'oklch(0.7 0.12 280)'],
@@ -116,7 +121,7 @@ export type ThemeCustomization = {
 }
 
 export const DEFAULT_THEME_CUSTOMIZATION: ThemeCustomization = {
-  preset: 'default',
+  preset: 'svip',
   font: 'default',
   radius: 'default',
   scale: 'default',
@@ -177,6 +182,7 @@ export const PRESET_DEFAULT_FONT: Partial<
   Record<ThemePreset, ResolvedThemeFont>
 > = {
   default: 'sans',
+  svip: 'sans',
   anthropic: 'serif',
 }
 

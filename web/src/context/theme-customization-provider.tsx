@@ -133,12 +133,12 @@ export function ThemeCustomizationProvider(props: {
     )
   )
 
-  // Mirror state to the <body> via data-* attributes so theme-presets.css can
-  // override CSS variables at the right cascade layer.
+  // Mirror state to the <body> via data-* attributes so theme-presets.css and
+  // svip.css can override CSS variables at the right cascade layer.
   useEffect(() => {
     applyAttribute(
       'data-theme-preset',
-      preset === DEFAULT_THEME_CUSTOMIZATION.preset ? null : preset
+      preset === 'default' ? null : preset
     )
   }, [preset])
 

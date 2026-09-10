@@ -26,7 +26,9 @@ import { useTheme } from '@/context/theme-provider'
 import { isLikelyHtml } from '@/lib/content-format'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { CTA, Features, Hero, HowItWorks, Stats } from './components'
+import { CodingAgentHero } from './components/coding-agent-hero'
+import { IntegrationSection } from './components/integration-section'
+import { EfficiencyCtaSection } from './components/efficiency-cta-section'
 import { useHomePageContent } from './hooks'
 
 export function Home() {
@@ -68,66 +70,60 @@ export function Home() {
     )
   }
 
-  if (content) {
-    if (isUrl) {
-      return (
-        <PublicLayout showMainContainer={false}>
-          {/*
-            allow-top-navigation-by-user-activation: the custom home page URL is
-            admin-configured (trusted); this lets its target="_top" nav/menu links
-            navigate the top-level window on user click. The default sandbox blocks
-            this on desktop, while some mobile browsers allow it via allow-popups,
-            causing inconsistent behavior. This token only permits user-activated
-            top-level navigation and does NOT grant same-origin access.
-          */}
-          <iframe
-            ref={iframeRef}
-            src={content}
-            className='h-screen w-full border-none'
-            title={t('Custom Home Page')}
-            sandbox='allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts allow-top-navigation-by-user-activation'
-            onLoad={syncIframePreferences}
-          />
-        </PublicLayout>
-      )
-    }
-
-    const contentIsHtml = isLikelyHtml(content)
-
-    if (contentIsHtml) {
-      return (
-        <PublicLayout showMainContainer={false}>
-          <RichContent
-            mode='html'
-            htmlVariant='isolated'
-            content={content}
-            className='custom-home-content'
-          />
-        </PublicLayout>
-      )
-    }
-
+  // If admin configured an external URL, use dedicated full-screen iframe
+  if (content && isUrl) {
     return (
-      <PublicLayout>
-        <div className='mx-auto max-w-6xl px-4 py-8'>
-          <RichContent
-            mode='markdown'
-            content={content}
-            className='custom-home-content'
-          />
-        </div>
+      <PublicLayout showMainContainer={false}>
+        <iframe
+          ref={iframeRef}
+          src={content}
+          className='h-screen w-full border-none'
+          title={t('Custom Home Page')}
+          sandbox='allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts allow-top-navigation-by-user-activation'
+          onLoad={syncIframePreferences}
+        />
       </PublicLayout>
     )
   }
 
+  const contentIsHtml = Boolean(content && isLikelyHtml(content))
+
   return (
     <PublicLayout showMainContainer={false}>
-      <Hero isAuthenticated={isAuthenticated} />
-      <Stats />
-      <Features />
-      <HowItWorks />
-      <CTA isAuthenticated={isAuthenticated} />
-      <Footer />
+      <main className='flex flex-1 flex-col items-center w-full'>
+        <CodingAgentHero />
+        {/* Subtle gradient divider between Hero and Integration */}
+        <div className='w-full max-w-7xl px-6 my-2 sm:my-4'>
+          <div className='h-px w-full bg-gradient-to-r from-transparent via-border/80 to-transparent' />
+        </div>
+        <IntegrationSection />
+
+        {/* Admin-configured custom home content (Markdown/HTML) rendered right below Integration */}
+        {content && (
+          <>
+            <div className='w-full max-w-7xl px-6 my-2 sm:my-4'>
+              <div className='h-px w-full bg-gradient-to-r from-transparent via-border/80 to-transparent' />
+            </div>
+            <section className='w-full max-w-7xl px-6 py-6 sm:py-8'>
+              <div className='rounded border border-border/50 bg-card/60 p-6 sm:p-8 backdrop-blur-xs'>
+                <RichContent
+                  mode={contentIsHtml ? 'html' : 'markdown'}
+                  htmlVariant={contentIsHtml ? 'isolated' : undefined}
+                  content={content}
+                  className='custom-home-content prose-neutral dark:prose-invert max-w-none'
+                />
+              </div>
+            </section>
+          </>
+        )}
+
+        {/* Subtle gradient divider before Efficiency Section */}
+        <div className='w-full max-w-7xl px-6 my-2 sm:my-4'>
+          <div className='h-px w-full bg-gradient-to-r from-transparent via-border/80 to-transparent' />
+        </div>
+        <EfficiencyCtaSection />
+      </main>
+      <Footer simple />
     </PublicLayout>
   )
 }

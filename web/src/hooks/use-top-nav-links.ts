@@ -85,7 +85,6 @@ export function useTopNavLinks(): TopNavLink[] {
     const requiresAuth = rankings.requireAuth && !isAuthed
     links.push({ title: t('Rankings'), href: '/rankings', requiresAuth })
   }
-
   // Docs (supports external links)
   if (modules?.docs !== false) {
     if (docsLink) {
@@ -94,6 +93,7 @@ export function useTopNavLinks(): TopNavLink[] {
       links.push({ title: t('Docs'), href: '/docs' })
     }
   }
+
 
   // About
   if (modules?.about !== false) {

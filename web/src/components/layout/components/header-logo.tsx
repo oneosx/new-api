@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils'
 
 interface HeaderLogoProps {
   src: string
+  darkSrc?: string
   alt?: string
   loading: boolean
   logoLoaded: boolean
@@ -29,14 +30,43 @@ interface HeaderLogoProps {
 /**
  * Logo component for header with loading state
  * Shows image only when fully loaded for smooth UX
+ * Automatically switches to darkSrc when in dark mode
  */
 export function HeaderLogo({
   src,
+  darkSrc,
   alt = 'logo',
   loading,
   logoLoaded,
   className,
 }: HeaderLogoProps) {
+  if (darkSrc) {
+    return (
+      <>
+        {/* Light mode logo */}
+        <img
+          src={src}
+          alt={alt}
+          className={cn(
+            'h-6 w-6 rounded-full transition-opacity duration-200 dark:hidden',
+            !loading && logoLoaded ? 'opacity-100' : 'opacity-0',
+            className
+          )}
+        />
+        {/* Dark mode logo */}
+        <img
+          src={darkSrc}
+          alt={alt}
+          className={cn(
+            'h-6 w-6 rounded-full transition-opacity duration-200 hidden dark:block',
+            !loading && logoLoaded ? 'opacity-100' : 'opacity-0',
+            className
+          )}
+        />
+      </>
+    )
+  }
+
   return (
     <img
       src={src}
