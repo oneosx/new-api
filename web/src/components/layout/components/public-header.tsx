@@ -178,16 +178,16 @@ export function PublicHeader(props: PublicHeaderProps) {
       <header className='pointer-events-none fixed inset-x-0 top-0 z-50'>
         <div
           className={cn(
-            'pointer-events-auto mx-auto transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
-            scrolled ? 'max-w-[52rem] pt-2' : 'max-w-7xl px-4 lg:px-0 pt-0 md:px-6'
+            'pointer-events-auto mx-auto px-2 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
+            scrolled ? 'max-w-[52rem] pt-2' : 'max-w-7xl'
           )}
         >
           <nav
             className={cn(
               'flex items-center justify-between transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
               scrolled
-                ? 'h-12 px-2.5 bg-background/60 ring-border/50 rounded-full shadow-[0_2px_16px_-6px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.02)] ring-[0.5px] backdrop-blur-2xl transition-shadow duration-300 hover:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_16px_-6px_rgba(0,0,0,0.4)] dark:hover:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.6)]'
-                : 'h-16 px-2'
+                ? 'h-12 px-2.5 bg-background/60 ring-border/50 rounded-full shadow-[0_2px_16px_-6px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.02)] ring-[0.5px] backdrop-blur-2xl transition-shadow duration-300'
+                : 'h-16'
             )}
           >
             {/* Logo */}

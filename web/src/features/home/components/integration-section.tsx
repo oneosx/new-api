@@ -37,7 +37,7 @@ export OPENAI_BASE_URL="https://get.svip.app/v1"
 export OPENAI_API_KEY="${tokenPlaceholder}"`
 
   return (
-    <section className='w-full max-w-7xl mx-auto px-6 py-16 lg:py-24'>
+    <section className='w-full max-w-7xl mx-auto p-2 my-16'>
       <div className='grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start'>
         {/* Left Column: Heading & Integration Table */}
         <div className='lg:col-span-6 flex flex-col'>

@@ -224,7 +224,7 @@ export function Footer(props: FooterProps) {
       <footer
         className={cn('border-border/40 relative z-10 border-t', props.className)}
       >
-        <div className='mx-auto max-w-7xl px-6 py-4'>
+        <div className='mx-auto max-w-7xl px-2 py-4'>
           {hasLegalLinks ? (
             <div className='flex flex-col items-center justify-between gap-x-4 gap-y-2 sm:flex-row text-xs text-muted-foreground/40'>
               <span className='text-center sm:text-left'>

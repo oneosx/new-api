@@ -28,13 +28,8 @@ export interface LoadingSkeletonProps {
 export function LoadingSkeleton(props: LoadingSkeletonProps) {
   return (
     <div aria-busy='true'>
-      <div className='mx-auto mb-5 flex max-w-3xl flex-col items-center pt-5 sm:mb-10 sm:pt-10'>
-        <Skeleton className='h-[clamp(2.3rem,6.325vw,4.025rem)] w-48 max-w-full sm:w-64' />
-        <Skeleton className='mt-3 h-5 w-56 max-w-full sm:mt-4 sm:h-6' />
-        <Skeleton className='mt-2 h-5 w-full max-w-xl' />
-        <Skeleton className='mt-4 h-10 w-full max-w-2xl sm:mt-6' />
-      </div>
       <div className='grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]'>
+        {/* 左侧侧边栏 Skeleton */}
         <div className='hidden self-start rounded-xl border p-3 xl:block'>
           <Skeleton className='mb-4 h-5 w-24' />
           {Array.from({ length: 5 }, (_, index) => (
@@ -51,13 +46,26 @@ export function LoadingSkeleton(props: LoadingSkeletonProps) {
             </div>
           ))}
         </div>
+
+        {/* 右侧内容区 Skeleton */}
         <div className='flex min-w-0 flex-col gap-4'>
-          <div className='flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3'>
-            <Skeleton className='h-7 w-20' />
-            <div className='flex flex-wrap gap-2'>
-              <Skeleton className='h-7 w-32' />
-              <Skeleton className='h-7 w-20' />
-              <Skeleton className='h-7 w-24' />
+          {/* 工具栏 Skeleton：对齐搜索框与各控制按钮 */}
+          <div className='bg-card flex flex-wrap items-center justify-between gap-3 rounded-xl border p-2.5 sm:p-3'>
+            <div className='flex w-full items-center gap-2 sm:w-auto sm:flex-1 sm:min-w-0 sm:gap-3'>
+              {/* 手机端筛选按钮占位 */}
+              <Skeleton className='h-9 w-16 shrink-0 xl:hidden' />
+              {/* 搜索框占位 */}
+              <Skeleton className='h-9 w-full sm:h-8.5 sm:max-w-xs md:max-w-sm rounded-lg' />
+              {/* 模型计数占位 */}
+              <Skeleton className='h-5 w-16 shrink-0' />
+            </div>
+
+            {/* 右侧按钮组占位 */}
+            <div className='grid grid-cols-4 w-full gap-1.5 sm:flex sm:w-auto sm:items-center sm:gap-2'>
+              <Skeleton className='h-8 w-full sm:w-28 rounded-lg' />
+              <Skeleton className='h-8 w-full sm:w-24 rounded-lg' />
+              <Skeleton className='h-8 w-full sm:w-20 rounded-lg' />
+              <Skeleton className='h-8 w-full sm:w-16 rounded-lg' />
             </div>
           </div>
           {props.viewMode === VIEW_MODES.TABLE ? (

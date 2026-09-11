@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ArrowUpDown, Check, Filter } from 'lucide-react'
+import { ArrowUpDown, Check, Filter, Search, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -52,6 +52,9 @@ import { PricingSidebar } from './pricing-sidebar'
 export interface PricingToolbarProps {
   filteredCount: number
   totalCount?: number
+  searchValue: string
+  onSearchChange: (value: string) => void
+  onSearchClear: () => void
   sortBy: string
   onSortChange: (value: string) => void
   tokenUnit: TokenUnit
@@ -86,40 +89,75 @@ export function PricingToolbar(props: PricingToolbarProps) {
   const sortLabels = getSortLabels(t)
 
   return (
-    <div className='bg-card rounded-xl border p-3'>
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div className='flex items-center gap-2'>
+    <div className='bg-card rounded-xl border p-2.5 sm:p-3'>
+      <div className='flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3'>
+        {/* 第一行（手机端）：筛选 + 搜索框 + xx个模型；桌面端：左半区 */}
+        <div className='flex w-full items-center gap-2 sm:w-auto sm:flex-1 sm:min-w-0 sm:gap-3'>
           <Button
             type='button'
             variant='outline'
             size='sm'
             onClick={() => setMobileFiltersOpen(true)}
-            className='gap-1.5 xl:hidden'
+            className='gap-1 shrink-0 h-9 px-2.5 text-xs sm:h-8.5 sm:px-3 sm:text-xs xl:hidden'
           >
-            <Filter className='size-4' />
-            {t('Filter')}
+            <Filter className='size-3.5 sm:size-4' />
+            <span>{t('Filter')}</span>
             {props.activeFilterCount > 0 && (
-              <Badge className='ml-0.5 size-5 justify-center p-0 text-[10px]'>
+              <Badge className='size-4 justify-center p-0 text-[9px] leading-none sm:ml-0.5 sm:size-5 sm:text-[10px]'>
                 {props.activeFilterCount}
               </Badge>
             )}
           </Button>
 
-          <div className='text-muted-foreground flex items-baseline gap-1 text-sm'>
+          <div className='relative flex-1 min-w-0 sm:max-w-xs md:max-w-sm'>
+            <input
+              type='text'
+              placeholder={t('Search model name, provider, endpoint, or tag...')}
+              value={props.searchValue}
+              onChange={(e) => props.onSearchChange(e.target.value)}
+              className={cn(
+                'border-border/60 bg-background placeholder:text-muted-foreground/50',
+                'hover:border-border',
+                'focus:border-primary/50 focus:ring-primary/20 focus:ring-2',
+                'h-9 sm:h-8.5 w-full rounded-lg border pr-7 sm:pr-14 pl-7 sm:pl-8 text-xs sm:text-sm transition-all outline-none'
+              )}
+              aria-label={t('Search models')}
+            />
+            <Search className='text-muted-foreground/60 pointer-events-none absolute top-1/2 left-2 sm:left-2.5 size-3.5 -translate-y-1/2' />
+            <div className='absolute top-1/2 right-1.5 sm:right-2 flex -translate-y-1/2 items-center gap-1'>
+              {props.searchValue ? (
+                <button
+                  type='button'
+                  onClick={props.onSearchClear}
+                  className='text-muted-foreground/60 hover:text-foreground rounded p-0.5 transition-colors'
+                  aria-label={t('Clear search')}
+                >
+                  <X className='size-3.5' />
+                </button>
+              ) : (
+                <kbd className='bg-muted/80 text-muted-foreground/70 hidden rounded px-1.5 py-0.5 font-mono text-[10px] sm:inline-block'>
+                  ⌘K
+                </kbd>
+              )}
+            </div>
+          </div>
+
+          <div className='text-muted-foreground flex shrink-0 items-baseline gap-0.5 sm:gap-1 text-xs sm:text-sm whitespace-nowrap'>
             <span className='text-foreground font-semibold tabular-nums'>
               {props.filteredCount.toLocaleString()}
             </span>
             <span>{props.filteredCount === 1 ? t('model') : t('models')}</span>
             {props.totalCount != null &&
               props.filteredCount !== props.totalCount && (
-                <span className='text-muted-foreground/60 text-xs'>
+                <span className='text-muted-foreground/60 text-[10px] sm:text-xs'>
                   / {props.totalCount.toLocaleString()}
                 </span>
               )}
           </div>
         </div>
 
-        <div className='flex min-w-0 flex-wrap items-center gap-2'>
+        {/* 第二行（手机端）：4列均分吃完100%整行宽度；桌面端：右侧常规排列 */}
+        <div className='grid grid-cols-4 sm:flex sm:items-center w-full sm:w-auto gap-1.5 sm:gap-2'>
           <ToggleGroup
             value={[props.showRechargePrice ? 'recharge' : 'standard']}
             onValueChange={(values) => {
@@ -130,10 +168,12 @@ export function PricingToolbar(props: PricingToolbarProps) {
             variant='outline'
             size='sm'
             aria-label={t('Price display mode')}
+            className='w-full justify-center [&>*]:flex-1 sm:[&>*]:flex-none'
           >
             <ToggleGroupItem value='standard'>{t('Standard')}</ToggleGroupItem>
             <ToggleGroupItem value='recharge'>{t('Recharge')}</ToggleGroupItem>
           </ToggleGroup>
+
           <ToggleGroup
             value={[props.tokenUnit]}
             onValueChange={(values) => {
@@ -144,6 +184,7 @@ export function PricingToolbar(props: PricingToolbarProps) {
             variant='outline'
             size='sm'
             aria-label={t('Token unit')}
+            className='w-full justify-center [&>*]:flex-1 sm:[&>*]:flex-none'
           >
             <ToggleGroupItem value='M'>/1M</ToggleGroupItem>
             <ToggleGroupItem value='K'>/1K</ToggleGroupItem>
@@ -156,12 +197,12 @@ export function PricingToolbar(props: PricingToolbarProps) {
                   type='button'
                   variant='outline'
                   size='sm'
-                  className='h-8 gap-1.5 px-3 text-xs'
+                  className='h-8 w-full gap-1 px-1.5 text-xs justify-center sm:w-auto sm:px-3 sm:gap-1.5'
                 />
               }
             >
-              <ArrowUpDown className='size-3.5' />
-              <span>{sortLabels[props.sortBy as SortOption] || t('Sort')}</span>
+              <ArrowUpDown className='size-3.5 shrink-0' />
+              <span className='truncate'>{sortLabels[props.sortBy as SortOption] || t('Sort')}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-44'>
               <DropdownMenuGroup>
@@ -184,10 +225,13 @@ export function PricingToolbar(props: PricingToolbarProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <DataTableViewModeToggle
-            value={props.viewMode}
-            onChange={props.onViewModeChange}
-          />
+          <div className='w-full flex justify-center sm:w-auto'>
+            <DataTableViewModeToggle
+              value={props.viewMode}
+              onChange={props.onViewModeChange}
+              className='w-full justify-center [&>*]:flex-1 sm:[&>*]:flex-none'
+            />
+          </div>
         </div>
       </div>
 

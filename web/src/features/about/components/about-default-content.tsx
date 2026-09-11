@@ -144,9 +144,9 @@ export function AboutDefaultContent() {
   ]
 
   return (
-    <div className='mx-auto max-w-5xl px-4 py-8 md:py-12 space-y-12 sm:space-y-16'>
+    <div className='mx-auto max-w-7xl px-2 py-16 space-y-16'>
       {/* Hero Header */}
-      <div className='space-y-4 text-center sm:text-left border-b border-border/40 pb-8'>
+      <div className='space-y-4 text-center sm:text-left border-b border-border/40 pb-16'>
         <div className='inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-primary/10 text-primary'>
           <Cpu className='size-3.5' />
           <span>get.svip.app</span>

@@ -27,7 +27,7 @@ export function CodingAgentHero() {
   const [hoveredModel, setHoveredModel] = useState<string | null>(null)
 
   return (
-    <div className='relative w-full max-w-7xl mx-auto p-4 mt-16'>
+    <div className='relative w-full max-w-7xl mx-auto px-2 my-16'>
       <div className='relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center'>
         {/* Right Column: 3D Galaxy Planetary System (Scaled to prevent clipping) */}
         <div className='order-1 lg:order-2 lg:col-span-6 relative flex items-center justify-center w-full select-none overflow-visible'>
