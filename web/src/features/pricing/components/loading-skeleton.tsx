@@ -30,7 +30,7 @@ export function LoadingSkeleton(props: LoadingSkeletonProps) {
     <div aria-busy='true'>
       <div className='grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]'>
         {/* 左侧侧边栏 Skeleton */}
-        <div className='hidden self-start rounded-xl border p-3 xl:block'>
+        <div className='hidden rounded-xl border p-3 xl:block'>
           <Skeleton className='mb-4 h-5 w-24' />
           {Array.from({ length: 5 }, (_, index) => (
             <div

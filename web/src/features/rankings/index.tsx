@@ -62,7 +62,7 @@ export function Rankings() {
           aria-hidden
           className='pointer-events-none absolute inset-x-0 top-0 h-[600px] opacity-20 dark:opacity-[0.10]'
         />
-        <PageTransition className='relative mx-auto my-16 w-full max-w-7xl space-y-2 px-2'>
+        <PageTransition className='relative mx-auto my-16 w-full max-w-7xl space-y-4 px-2'>
           <RankingsHero period={period} onPeriodChange={handlePeriodChange} />
 
           {rankingsQuery.isLoading ? (

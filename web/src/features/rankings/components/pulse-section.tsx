@@ -42,7 +42,7 @@ export function PulseSection(props: PulseSectionProps) {
   const { t } = useTranslation()
 
   return (
-    <section className='grid grid-cols-1 gap-2 lg:grid-cols-2'>
+    <section className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
       <PulseCard
         title={t('Trending up')}
         description={t('Models climbing the leaderboard')}
