@@ -179,21 +179,21 @@ export function PublicHeader(props: PublicHeaderProps) {
         <div
           className={cn(
             'pointer-events-auto mx-auto transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
-            scrolled ? 'max-w-[52rem] px-3 pt-3' : 'max-w-7xl px-4 pt-0 md:px-6'
+            scrolled ? 'max-w-[52rem] pt-2' : 'max-w-7xl px-4 lg:px-0 pt-0 md:px-6'
           )}
         >
           <nav
             className={cn(
               'flex items-center justify-between transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
               scrolled
-                ? 'bg-background/60 ring-border/50 h-12 rounded-2xl pr-1.5 pl-4 shadow-[0_2px_16px_-6px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.02)] ring-[0.5px] backdrop-blur-2xl transition-shadow duration-300 hover:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_16px_-6px_rgba(0,0,0,0.4)] dark:hover:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.6)]'
+                ? 'h-12 px-2.5 bg-background/60 ring-border/50 rounded-full shadow-[0_2px_16px_-6px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.02)] ring-[0.5px] backdrop-blur-2xl transition-shadow duration-300 hover:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.12),0_0_0_0.5px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_16px_-6px_rgba(0,0,0,0.4)] dark:hover:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.6)]'
                 : 'h-16 px-2'
             )}
           >
             {/* Logo */}
             <Link
               to={homeUrl}
-              className='group flex shrink-0 items-center'
+              className='group flex shrink-0 items-center opacity-90'
               aria-label={displaySiteName}
             >
               <div className='flex h-6 max-h-6 max-w-[150px] items-center justify-center transition-all duration-300 group-hover:scale-105'>
@@ -286,7 +286,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                   ) : (
                     <Button
                       size='sm'
-                      className='h-8 rounded px-3.5 text-xs font-medium'
+                      className='h-8 rounded-full px-3.5 text-xs font-medium'
                       render={<Link to='/sign-in' />}
                     >
                       {t('Sign in')}

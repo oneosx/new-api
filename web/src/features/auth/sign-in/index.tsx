@@ -31,27 +31,23 @@ export function SignIn() {
   const { status } = useStatus()
 
   return (
-    <AuthLayout>
+    <AuthLayout
+      title={t('Sign in')}
+      description={
+        !status?.self_use_mode_enabled && status?.register_enabled !== false ? (
+          <span>
+            {t("Don't have an account?")}{' '}
+            <Link
+              to='/sign-up'
+              className='hover:text-primary font-medium underline underline-offset-4'
+            >
+              {t('Sign up')}
+            </Link>
+          </span>
+        ) : undefined
+      }
+    >
       <div className='w-full space-y-8'>
-        <div className='space-y-2'>
-          <h2 className='text-center text-2xl font-semibold tracking-tight sm:text-left'>
-            {t('Sign in')}
-          </h2>
-          {!status?.self_use_mode_enabled &&
-            status?.register_enabled !== false && (
-              <p className='text-muted-foreground text-left text-sm sm:text-base'>
-                {t("Don't have an account?")}{' '}
-                <Link
-                  to='/sign-up'
-                  className='hover:text-primary font-medium underline underline-offset-4'
-                >
-                  {t('Sign up')}
-                </Link>
-                .
-              </p>
-            )}
-        </div>
-
         <UserAuthForm redirectTo={redirect} />
 
         <TermsFooter
