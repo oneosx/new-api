@@ -1,12 +1,20 @@
-export interface AntigravityQuotaGroupInfo {
-  name: string
-  models: string[]
-  five_hour_limit_remaining?: string
-  five_hour_limit_percent: number
-  five_hour_reset_after?: string
-  weekly_limit_remaining?: string
-  weekly_limit_percent: number
+export interface CodexRateLimitWindowInfo {
+  used_percent: number
+  reset_after: string
+}
+
+export interface CodexQuotaDetailedInfo {
+  plan_type: string
+  primary_window?: CodexRateLimitWindowInfo
+  secondary_window?: CodexRateLimitWindowInfo
+  available_reset_credits: number
+}
+
+export interface XaiQuotaDetailedInfo {
+  weekly_used_percent: number
   weekly_reset_after?: string
+  grok_build_used: number
+  grok_chat_used: string
 }
 
 export interface CpaAuthFileInfo {
@@ -25,7 +33,9 @@ export interface CpaAuthFileInfo {
   success: number
   failed: number
   last_refresh?: string
-  antigravity_groups?: AntigravityQuotaGroupInfo[]
+  auth_index?: string
+  codex_detail?: CodexQuotaDetailedInfo
+  xai_detail?: XaiQuotaDetailedInfo
 }
 
 export interface CpaNodeChannelInfo {

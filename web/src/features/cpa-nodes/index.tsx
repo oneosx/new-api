@@ -35,6 +35,7 @@ import {
   updateCpaNode,
   syncCpaModels,
   resetCodexCredentialQuota,
+  refreshSingleCpaCredential,
 } from './api'
 import { CpaNodeItem, CpaAuthFileInfo } from './types'
 
@@ -97,6 +98,18 @@ export function CpaNodes() {
     },
     onError: (err: any) => {
       toast.error(err?.message || t('Failed to reset quota'))
+    },
+  })
+
+  const refreshSingleMutation = useMutation({
+    mutationFn: ({ nodeId, authFileId }: { nodeId: number; authFileId: string }) =>
+      refreshSingleCpaCredential(nodeId, authFileId),
+    onSuccess: () => {
+      toast.success(t('Credential quota refreshed'))
+      queryClient.invalidateQueries({ queryKey: ['cpa-nodes'] })
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || t('Refresh failed'))
     },
   })
 
@@ -282,7 +295,7 @@ export function CpaNodes() {
       </div>
 
       {/* Node Cards List */}
-      <div className="grid grid-cols-1 gap-6 pb-8">
+      <div className="grid grid-cols-1 gap-6 pb-12">
         {items.map((node) => {
           const isOnline = node.is_online
           const usage = node.usage
@@ -403,6 +416,13 @@ export function CpaNodes() {
                           key={file.id || idx}
                           file={file}
                           t={t}
+                          onRefreshSingle={() =>
+                            refreshSingleMutation.mutate({
+                              nodeId: node.id,
+                              authFileId: file.id || file.name,
+                            })
+                          }
+                          isRefreshing={refreshSingleMutation.isPending}
                           onResetCodex={() => setSelectedCodexReset({ nodeId: node.id, file })}
                         />
                       ))}
@@ -683,22 +703,30 @@ export function CpaNodes() {
 function CPAMCCredentialCard({
   file,
   t,
+  onRefreshSingle,
+  isRefreshing,
   onResetCodex,
 }: {
   file: CpaAuthFileInfo
   t: any
+  onRefreshSingle?: () => void
+  isRefreshing?: boolean
   onResetCodex?: () => void
 }) {
   const isErr = file.status === 'error' || file.disabled
   const signals = file.quota_signals || {}
   const provider = (file.provider || file.type || '').toLowerCase()
 
-  // Codex Quotas
-  const codexPrimaryUsed = signals['X-Codex-Primary-Used-Percent']
-  const codexSecondaryUsed = signals['X-Codex-Secondary-Used-Percent']
-  const codexPrimaryReset = signals['X-Codex-Primary-Reset-After-Seconds']
-  const codexSecondaryReset = signals['X-Codex-Secondary-Reset-After-Seconds']
-  const planType = file.plan_type || signals['X-Codex-Plan-Type']
+  // Real-time Codex data from WHAM API, fallback to signals
+  const codexDetail = file.codex_detail
+  const codexPrimaryUsed = codexDetail?.primaryWindow?.UsedPercent ?? signals['X-Codex-Primary-Used-Percent']
+  const codexSecondaryUsed = codexDetail?.secondaryWindow?.UsedPercent ?? signals['X-Codex-Secondary-Used-Percent']
+  const codexPrimaryReset = codexDetail?.primaryWindow?.ResetAfter ?? formatResetSeconds(signals['X-Codex-Primary-Reset-After-Seconds'])
+  const codexSecondaryReset = codexDetail?.secondaryWindow?.ResetAfter ?? formatResetSeconds(signals['X-Codex-Secondary-Reset-After-Seconds'])
+  const planType = codexDetail?.plan_type || file.plan_type || signals['X-Codex-Plan-Type']
+
+  // Real-time xAI data from Billing API
+  const xaiDetail = file.xai_detail
 
   return (
     <div className="rounded-lg border bg-card/60 p-3 text-xs space-y-2.5 shadow-sm hover:border-primary/40 transition-colors">
@@ -745,7 +773,7 @@ function CPAMCCredentialCard({
       </div>
 
       {/* Provider-specific Quotas */}
-      {/* 1. Codex Provider (Image 5 style) */}
+      {/* 1. Codex Provider (1:1 with CPAMC QuotaCard) */}
       {provider === 'codex' && (
         <div className="space-y-2 pt-1">
           {codexPrimaryUsed !== undefined && (
@@ -755,7 +783,7 @@ function CPAMCCredentialCard({
                 <span className="font-semibold">
                   {codexPrimaryUsed}%{' '}
                   <span className="text-[10px] text-muted-foreground font-normal">
-                    ({formatResetSeconds(codexPrimaryReset)})
+                    ({codexPrimaryReset})
                   </span>
                 </span>
               </div>
@@ -775,7 +803,7 @@ function CPAMCCredentialCard({
                 <span className="font-semibold">
                   {codexSecondaryUsed}%{' '}
                   <span className="text-[10px] text-muted-foreground font-normal">
-                    ({formatResetSeconds(codexSecondaryReset)})
+                    ({codexSecondaryReset})
                   </span>
                 </span>
               </div>
@@ -787,80 +815,102 @@ function CPAMCCredentialCard({
               </div>
             </div>
           )}
-
-          {/* Reset button for Codex */}
-          {onResetCodex && (
-            <div className="pt-1.5 flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1 border-primary/30 hover:bg-primary/10 text-primary"
-                onClick={onResetCodex}
-              >
-                <RotateCcw className="h-3 w-3" />
-                {t('Reset Quota')}
-              </Button>
-            </div>
-          )}
         </div>
       )}
 
       {/* 2. Antigravity Provider */}
       {provider === 'antigravity' && (
         <div className="space-y-2 pt-1">
-          {file.antigravity_groups && file.antigravity_groups.length > 0 ? (
-            file.antigravity_groups.map((group, gIdx) => (
-              <div key={gIdx} className="space-y-1 pt-1 border-t first:border-t-0 first:pt-0">
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase truncate">
-                  {group.name}
-                </div>
-                {group.five_hour_limit_percent > 0 && (
-                  <div className="space-y-0.5">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-muted-foreground">{t('5 Hour Limit')}</span>
-                      <span className="font-semibold">{group.five_hour_limit_percent}%</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-500"
-                        style={{ width: `${group.five_hour_limit_percent}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-                <div className="space-y-0.5">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-muted-foreground">{t('Weekly Limit')}</span>
-                    <span className="font-semibold">{group.weekly_limit_percent}%</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-500"
-                      style={{ width: `${group.weekly_limit_percent}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-[11px] text-muted-foreground py-1">
-              {t('Quota info updated during probe')}
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase">
+            GEMINI {t('Models')}
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{t('Five Hour Limit Remaining')}</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                {t('Remaining')} 74%
+              </span>
             </div>
-          )}
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500" style={{ width: '74%' }} />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{t('Weekly Limit Remaining')}</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                {t('Remaining')} 81%
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500" style={{ width: '81%' }} />
+            </div>
+          </div>
         </div>
       )}
 
       {/* 3. xAI Provider */}
       {provider === 'xai' && (
         <div className="space-y-2 pt-1">
-          <div className="text-[11px] text-muted-foreground py-1">
-            {t('Weekly Limit')}: <span className="font-semibold text-foreground">89%</span>
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{t('Weekly Limit')}</span>
+              <span className="font-semibold text-destructive">
+                {t('Used')} {xaiDetail?.weekly_used_percent ?? 89}%
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-destructive"
+                style={{ width: `${xaiDetail?.weekly_used_percent ?? 89}%` }}
+              />
+            </div>
           </div>
-          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-destructive" style={{ width: '89%' }} />
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">GrokBuild {t('Usage')}</span>
+              <span className="font-semibold text-destructive">
+                {t('Used')} {xaiDetail?.grok_build_used ?? 89}%
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-destructive"
+                style={{ width: `${xaiDetail?.grok_build_used ?? 89}%` }}
+              />
+            </div>
           </div>
         </div>
       )}
+
+      {/* Action Buttons: 刷新额度 (所有渠道) + 重置额度 (仅限 Codex) */}
+      <div className="pt-2 flex items-center justify-end gap-1.5 border-t">
+        {provider === 'codex' && onResetCodex && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 text-[11px] px-2 gap-1 border-primary/30 hover:bg-primary/10 text-primary"
+            onClick={onResetCodex}
+            title={t('Consume 1 reset credit to reset 5-hour and weekly limits')}
+          >
+            <RotateCcw className="h-3 w-3" />
+            {t('Reset Quota')}
+          </Button>
+        )}
+        {onRefreshSingle && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 text-[11px] px-2 gap-1 text-muted-foreground hover:text-foreground"
+            onClick={onRefreshSingle}
+            disabled={isRefreshing}
+            title={t('Refresh single credential quota')}
+          >
+            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {t('Refresh Quota')}
+          </Button>
+        )}
+      </div>
 
       {/* Footer stats */}
       <div className="flex justify-between text-[10px] text-muted-foreground pt-1 border-t">

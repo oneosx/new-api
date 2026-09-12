@@ -1,5 +1,5 @@
 import { api } from '@/lib/api'
-import { CpaNodeItem, CpaNodesResponse, CpaSyncDiffResult } from './types'
+import { CpaNodeItem, CpaNodesResponse, CpaSyncDiffResult, CpaAuthFileInfo } from './types'
 
 export async function fetchCpaNodes(window = 'today', fresh = false): Promise<CpaNodesResponse> {
   const res = await api.get<{ success: boolean; message?: string; data: CpaNodesResponse }>('/api/cpa-node', {
@@ -72,6 +72,18 @@ export async function resetCodexCredentialQuota(nodeId: number, authFileId: stri
   })
   if (!res.data?.success) {
     throw new Error(res.data?.message || 'Failed to reset quota')
+  }
+  return res.data?.data
+}
+
+export async function refreshSingleCpaCredential(nodeId: number, authFileId: string): Promise<CpaAuthFileInfo> {
+  const res = await api.post<{ success: boolean; message?: string; data: CpaAuthFileInfo }>(
+    `/api/cpa-node/${nodeId}/refresh-credential-quota`,
+    {},
+    { params: { auth_file_id: authFileId } }
+  )
+  if (!res.data?.success) {
+    throw new Error(res.data?.message || 'Failed to refresh credential quota')
   }
   return res.data?.data
 }

@@ -508,6 +508,37 @@ func ResetCodexCredentialQuota(c *gin.Context) {
 	})
 }
 
+func RefreshSingleCpaCredentialQuota(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "无效的节点 ID"})
+		return
+	}
+	node, err := model.GetCpaNodeById(id)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "节点不存在: " + err.Error()})
+		return
+	}
+
+	authFileId := c.Query("auth_file_id")
+	if authFileId == "" {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "auth_file_id 不能为空"})
+		return
+	}
+
+	res, err := service.RefreshSingleAuthFileQuota(c.Request.Context(), node, authFileId)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "刷新失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "刷新成功",
+		"data":    res,
+	})
+}
+
 func toCpaNodeDTO(node *model.CpaNode, includeDetails bool) *CpaNodeDTO {
 	if node == nil {
 		return nil

@@ -148,7 +148,7 @@ func ResetCodexAuthFileQuota(ctx context.Context, node *model.CpaNode, authFileI
 	callRespBytes, _ := io.ReadAll(io.LimitReader(callResp.Body, 1<<20))
 	type apiCallGenericResp struct {
 		StatusCode int             `json:"status_code"`
-		Body       jsonRawResponse `json:"body"`
+		Body       any `json:"body"`
 	}
 
 	type resetCreditResp struct {

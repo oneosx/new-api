@@ -30,4 +30,5 @@ var cpaPermissionRoutes = []permissionRoute{
 	{method: http.MethodPost, path: "/:id/test", permission: authz.ChannelOperate, handler: controller.ProbeCpaNode},
 	{method: http.MethodPost, path: "/:id/sync-channels", permission: authz.ChannelWrite, handler: controller.SyncCpaModelsToChannels},
 	{method: http.MethodPost, path: "/:id/reset-codex-quota", permission: authz.ChannelOperate, handler: controller.ResetCodexCredentialQuota},
+	{method: http.MethodPost, path: "/:id/refresh-credential-quota", permission: authz.ChannelOperate, handler: controller.RefreshSingleCpaCredentialQuota},
 }
