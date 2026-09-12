@@ -14,7 +14,10 @@ import {
   Clock,
   Layers,
   Search,
+  Shield,
   ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,7 +34,7 @@ import {
   updateCpaNode,
   syncCpaModels,
 } from './api'
-import { CpaNodeItem } from './types'
+import { CpaNodeItem, CpaAuthFileInfo } from './types'
 
 export function CpaNodes() {
   const { t } = useTranslation()
@@ -43,8 +46,9 @@ export function CpaNodes() {
   const [selectedNodeForSync, setSelectedNodeForSync] = useState<CpaNodeItem | null>(null)
   const [syncMode, setSyncMode] = useState<'merge' | 'replace'>('merge')
   const [confirmReplace, setConfirmReplace] = useState(false)
+  const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({})
 
-  // Edit / Create Form State
+  // Form State
   const [formName, setFormName] = useState('')
   const [formBaseUrl, setFormBaseUrl] = useState('')
   const [formApiKey, setFormApiKey] = useState('')
@@ -52,9 +56,9 @@ export function CpaNodes() {
   const [formWeight, setFormWeight] = useState(0)
   const [formDesc, setFormDesc] = useState('')
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['cpa-nodes'],
-    queryFn: () => fetchCpaNodes('today', false),
+    queryFn: () => fetchCpaNodes('today', true),
   })
 
   const probeMutation = useMutation({
@@ -133,6 +137,10 @@ export function CpaNodes() {
     },
   })
 
+  const toggleExpand = (nodeId: number) => {
+    setExpandedNodes((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }))
+  }
+
   const openCreateModal = () => {
     setSelectedNodeForEdit(null)
     setFormName('')
@@ -165,7 +173,7 @@ export function CpaNodes() {
   const summary = data?.summary || { total: 0, online: 0, total_requests: 0, total_quota: 0 }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 space-y-6">
       {/* Header & KPI */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -175,8 +183,16 @@ export function CpaNodes() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              refetch()
+              toast.info(t('Refreshing...'))
+            }}
+            disabled={isLoading || isFetching}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             {t('Refresh')}
           </Button>
           <Button size="sm" onClick={openCreateModal}>
@@ -250,12 +266,15 @@ export function CpaNodes() {
       </div>
 
       {/* Node Cards List */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-2">
         {items.map((node) => {
           const isOnline = node.is_online
           const usage = node.usage
+          const isExpanded = !!expandedNodes[node.id]
+          const authFiles = node.auth_files_summary || []
+
           return (
-            <Card key={node.id} className="relative overflow-hidden border">
+            <Card key={node.id} className="relative overflow-hidden border shadow-sm flex flex-col justify-between">
               <div
                 className={`h-1.5 w-full ${
                   node.status === 2
@@ -265,25 +284,25 @@ export function CpaNodes() {
                     : 'bg-destructive'
                 }`}
               />
-              <CardContent className="p-5 space-y-4">
+              <CardContent className="p-5 space-y-4 flex-1">
                 {/* Node Title & Status */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-base">{node.name}</span>
+                      <span className="font-bold text-lg">{node.name}</span>
                       {node.status === 2 && (
                         <Badge variant="outline" className="text-muted-foreground">
                           {t('Disabled')}
                         </Badge>
                       )}
                       {node.version && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className="text-xs font-mono">
                           {node.version}
                         </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                      <span className="truncate max-w-[200px]" title={node.base_url}>
+                      <span className="truncate max-w-[280px]" title={node.base_url}>
                         {node.base_url}
                       </span>
                     </div>
@@ -291,13 +310,13 @@ export function CpaNodes() {
 
                   <div className="flex items-center gap-1">
                     {isOnline ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                        <CheckCircle2 className="h-3 w-3" />
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                         {node.latency}ms
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
-                        <XCircle className="h-3 w-3" />
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-destructive bg-destructive/10 px-2.5 py-1 rounded-full">
+                        <XCircle className="h-3.5 w-3.5" />
                         {t('Offline')}
                       </span>
                     )}
@@ -305,95 +324,145 @@ export function CpaNodes() {
                 </div>
 
                 {node.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-1">{node.description}</p>
+                  <p className="text-xs text-muted-foreground">{node.description}</p>
                 )}
 
-                {/* Metrics */}
-                <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-3 text-xs">
+                {/* Metrics Bar */}
+                <div className="grid grid-cols-4 gap-2 rounded-lg bg-muted/40 p-3 text-xs text-center">
                   <div>
-                    <span className="text-muted-foreground">{t('Today Requests')}:</span>{' '}
-                    <span className="font-semibold">{(usage?.requests || 0).toLocaleString()}</span>
+                    <div className="text-muted-foreground">{t('Today Requests')}</div>
+                    <div className="font-bold text-sm mt-0.5">{(usage?.requests || 0).toLocaleString()}</div>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">{t('Quota')}:</span>{' '}
-                    <span className="font-semibold">
+                    <div className="text-muted-foreground">{t('Today Consumption')}</div>
+                    <div className="font-bold text-sm mt-0.5">
                       {formatQuotaWithCurrency(usage?.quota || 0)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">{t('Models')}</div>
+                    <div className="font-bold text-sm mt-0.5">{node.model_count || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">{t('Channels')}</div>
+                    <div className="font-bold text-sm mt-0.5">{node.channel_count || 0}</div>
+                  </div>
+                </div>
+
+                {/* Credentials & Quotas Section (CPAMC Style) */}
+                <div className="space-y-2 pt-1 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5 text-primary" />
+                      {t('Mounted Credentials')} ({authFiles.length})
                     </span>
+                    {authFiles.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+                        onClick={() => toggleExpand(node.id)}
+                      >
+                        {isExpanded ? (
+                          <>
+                            {t('Collapse')} <ChevronUp className="ml-1 h-3 w-3" />
+                          </>
+                        ) : (
+                          <>
+                            {t('Expand Quotas')} <ChevronDown className="ml-1 h-3 w-3" />
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">{t('Models')}:</span>{' '}
-                    <span className="font-semibold">{node.model_count || 0}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">{t('Channels')}:</span>{' '}
-                    <span className="font-semibold">{node.channel_count || 0}</span>
-                  </div>
+
+                  {authFiles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic py-1">
+                      {t('No auth files detected or management API not configured')}
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {authFiles.slice(0, isExpanded ? authFiles.length : 2).map((file, idx) => (
+                        <CredentialCard key={file.id || idx} file={file} t={t} />
+                      ))}
+                      {!isExpanded && authFiles.length > 2 && (
+                        <p
+                          className="text-[11px] text-primary cursor-pointer hover:underline text-center pt-0.5"
+                          onClick={() => toggleExpand(node.id)}
+                        >
+                          {t('...and {{count}} more credentials', { count: authFiles.length - 2 })}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {node.last_error && !isOnline && (
-                  <p className="text-xs text-destructive truncate" title={node.last_error}>
+                  <p className="text-xs text-destructive truncate bg-destructive/5 p-2 rounded" title={node.last_error}>
                     {node.last_error}
                   </p>
                 )}
-
-                {/* Actions */}
-                <div className="flex items-center justify-between pt-2 border-t text-xs">
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>
-                      {node.last_check_at
-                        ? new Date(node.last_check_at * 1000).toLocaleTimeString()
-                        : t('Never')}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      title={t('Test')}
-                      onClick={() => probeMutation.mutate(node.id)}
-                      disabled={probeMutation.isPending}
-                    >
-                      <Zap className="h-3.5 w-3.5" />
-                    </Button>
-                    {(node.channel_count || 0) > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        title={t('Sync models to channels')}
-                        onClick={() => {
-                          setSelectedNodeForSync(node)
-                          setSyncMode('merge')
-                          setConfirmReplace(false)
-                        }}
-                      >
-                        <RefreshCw className="h-3.5 w-3.5 text-blue-500" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      title={t('Edit')}
-                      onClick={() => openEditModal(node)}
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
-                      title={t('Delete')}
-                      onClick={() => setSelectedNodeForDelete(node)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
               </CardContent>
+
+              {/* Card Footer Actions */}
+              <div className="flex items-center justify-between p-4 border-t bg-muted/10 text-xs">
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>
+                    {node.last_check_at
+                      ? new Date(node.last_check_at * 1000).toLocaleTimeString()
+                      : t('Never')}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1"
+                    title={t('Test')}
+                    onClick={() => probeMutation.mutate(node.id)}
+                    disabled={probeMutation.isPending}
+                  >
+                    <Zap className="h-3.5 w-3.5 text-amber-500" />
+                    {t('Test')}
+                  </Button>
+                  {(node.channel_count || 0) > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1"
+                      title={t('Sync models to channels')}
+                      onClick={() => {
+                        setSelectedNodeForSync(node)
+                        setSyncMode('merge')
+                        setConfirmReplace(false)
+                      }}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 text-blue-500" />
+                      {t('Sync')}
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title={t('Edit')}
+                    onClick={() => openEditModal(node)}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    title={t('Delete')}
+                    onClick={() => setSelectedNodeForDelete(node)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </Card>
           )
         })}
@@ -415,11 +484,12 @@ export function CpaNodes() {
         open={!!selectedNodeForDelete}
         onOpenChange={(open) => !open && setSelectedNodeForDelete(null)}
         title={t('Delete CPA Node')}
-        description={t(
+        desc={t(
           'Are you sure you want to delete this CPA node? Associated channels will not be deleted.'
         )}
-        onConfirm={() => selectedNodeForDelete && deleteMutation.mutate(selectedNodeForDelete.id)}
-        loading={deleteMutation.isPending}
+        handleConfirm={() => selectedNodeForDelete && deleteMutation.mutate(selectedNodeForDelete.id)}
+        isLoading={deleteMutation.isPending}
+        destructive
       />
 
       {/* Sync Models Dialog */}
@@ -428,7 +498,7 @@ export function CpaNodes() {
           open={!!selectedNodeForSync}
           onOpenChange={(open) => !open && setSelectedNodeForSync(null)}
           title={t('Sync Models to Channels')}
-          description={
+          desc={
             <div className="space-y-4 py-2">
               <p>
                 {t('Sync models detected from {{name}} ({{count}} models) to {{chCount}} channels.', {
@@ -474,8 +544,8 @@ export function CpaNodes() {
               )}
             </div>
           }
-          onConfirm={() => selectedNodeForSync && syncMutation.mutate(selectedNodeForSync)}
-          loading={syncMutation.isPending}
+          handleConfirm={() => selectedNodeForSync && syncMutation.mutate(selectedNodeForSync)}
+          isLoading={syncMutation.isPending}
         />
       )}
 
@@ -563,6 +633,89 @@ export function CpaNodes() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function CredentialCard({ file, t }: { file: CpaAuthFileInfo; t: any }) {
+  const isErr = file.status === 'error' || file.disabled
+  const signals = file.quota_signals || {}
+  const primaryUsed = signals['X-Codex-Primary-Used-Percent']
+  const secondaryUsed = signals['X-Codex-Secondary-Used-Percent']
+  const planType = file.plan_type || signals['X-Codex-Plan-Type']
+
+  return (
+    <div className="rounded border bg-card p-2.5 text-xs space-y-1.5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 font-medium">
+          <Badge variant="outline" className="uppercase font-mono text-[10px] px-1 py-0">
+            {file.provider || file.type}
+          </Badge>
+          <span className="truncate max-w-[200px]" title={file.email || file.account || file.name}>
+            {file.email || file.account || file.name}
+          </span>
+        </div>
+        <span
+          className={`px-1.5 py-0.2 rounded text-[10px] font-medium ${
+            isErr
+              ? 'bg-destructive/10 text-destructive'
+              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+          }`}
+        >
+          {file.status || (isErr ? 'Error' : 'Active')}
+        </span>
+      </div>
+
+      {planType && (
+        <div className="text-[11px] text-muted-foreground">
+          {t('Plan')}: <span className="font-semibold text-foreground uppercase">{planType}</span>
+          {file.subscription_to && (
+            <span className="ml-1 text-[10px]">
+              ({t('Until')} {new Date(file.subscription_to).toLocaleDateString()})
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Quota Progress Bars */}
+      {primaryUsed !== undefined && (
+        <div className="space-y-0.5 pt-0.5">
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>{t('Primary Window Used')}</span>
+            <span className="font-semibold text-foreground">{primaryUsed}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full ${Number(primaryUsed) > 90 ? 'bg-destructive' : 'bg-primary'}`}
+              style={{ width: `${Math.min(100, Number(primaryUsed))}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {secondaryUsed !== undefined && (
+        <div className="space-y-0.5">
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>{t('Weekly / Secondary Limit')}</span>
+            <span className="font-semibold text-foreground">{secondaryUsed}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full ${Number(secondaryUsed) > 90 ? 'bg-destructive' : 'bg-amber-500'}`}
+              style={{ width: `${Math.min(100, Number(secondaryUsed))}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5 border-t">
+        <span>
+          {t('Success')}: <b className="text-foreground">{file.success || 0}</b>
+        </span>
+        <span>
+          {t('Failed')}: <b className={file.failed > 0 ? 'text-destructive' : 'text-foreground'}>{file.failed || 0}</b>
+        </span>
+      </div>
     </div>
   )
 }

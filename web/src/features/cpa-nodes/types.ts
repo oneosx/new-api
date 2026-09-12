@@ -1,3 +1,21 @@
+export interface CpaAuthFileInfo {
+  id: string
+  name: string
+  provider: string
+  type: string
+  status: string
+  disabled: boolean
+  email?: string
+  account?: string
+  plan_type?: string
+  subscription_to?: string
+  quota_signals?: Record<string, any>
+  model_quotas?: Record<string, any>
+  success: number
+  failed: number
+  last_refresh?: string
+}
+
 export interface CpaNodeChannelInfo {
   id: number
   name: string
@@ -34,6 +52,8 @@ export interface CpaNodeItem {
   version: string
   model_count: number
   models: string
+  auth_files_count?: number
+  auth_files_summary?: CpaAuthFileInfo[]
   last_error: string
   last_check_at: number
   channel_count: number

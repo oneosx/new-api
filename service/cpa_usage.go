@@ -59,7 +59,10 @@ func GetChannelsForCpaNode(node *model.CpaNode) ([]*CpaNodeChannelInfo, error) {
 
 	var matched []*CpaNodeChannelInfo
 	for _, ch := range channels {
-		rawBaseURL := ch.GetBaseURL()
+		if ch.BaseURL == nil {
+			continue
+		}
+		rawBaseURL := strings.TrimSpace(*ch.BaseURL)
 		if rawBaseURL == "" {
 			continue
 		}

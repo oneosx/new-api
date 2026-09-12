@@ -35,6 +35,7 @@ type CpaNode struct {
 	ModelCount  int    `json:"model_count" gorm:"default:0"`
 	Models      string `json:"models" gorm:"type:text"`
 	LastError   string `json:"last_error" gorm:"type:varchar(255);default:''"`
+	AuthFilesSummary string `json:"auth_files_summary" gorm:"type:text"`
 	LastCheckAt int64  `json:"last_check_at" gorm:"bigint;default:0;index"`
 }
 
@@ -56,6 +57,7 @@ func NormalizeCpaBaseURL(raw string) (string, error) {
 	}
 	u.Scheme = scheme
 	u.Host = strings.ToLower(u.Host)
+	u.User = nil
 	u.Fragment = ""
 	u.RawQuery = ""
 	u.Path = strings.TrimRight(u.Path, "/")
@@ -139,6 +141,10 @@ func (node *CpaNode) Delete() error {
 }
 
 func (node *CpaNode) UpdateProbeSnapshot(isOnline bool, latency int64, httpStatus int, version, models, lastError string) error {
+	return node.UpdateProbeSnapshotWithAuth(isOnline, latency, httpStatus, version, models, lastError, "")
+}
+
+func (node *CpaNode) UpdateProbeSnapshotWithAuth(isOnline bool, latency int64, httpStatus int, version, models, lastError, authSummary string) error {
 	modelsTrimmed := strings.TrimSpace(models)
 	modelCount := 0
 	if modelsTrimmed != "" {
@@ -156,20 +162,22 @@ func (node *CpaNode) UpdateProbeSnapshot(isOnline bool, latency int64, httpStatu
 	node.ModelCount = modelCount
 	node.Models = modelsTrimmed
 	node.LastError = lastError
+	node.AuthFilesSummary = authSummary
 	node.LastCheckAt = time.Now().Unix()
 	if DB == nil {
 		return nil
 	}
 
 	updates := map[string]any{
-		"is_online":     isOnline,
-		"latency":       latency,
-		"http_status":   httpStatus,
-		"version":       version,
-		"model_count":   modelCount,
-		"models":        modelsTrimmed,
-		"last_error":    lastError,
-		"last_check_at": time.Now().Unix(),
+		"is_online":          isOnline,
+		"latency":            latency,
+		"http_status":        httpStatus,
+		"version":            version,
+		"model_count":        modelCount,
+		"models":             modelsTrimmed,
+		"last_error":         lastError,
+		"auth_files_summary": authSummary,
+		"last_check_at":      time.Now().Unix(),
 	}
 	return DB.Model(&CpaNode{}).Where("id = ?", node.Id).Updates(updates).Error
 }

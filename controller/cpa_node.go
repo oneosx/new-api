@@ -3,37 +3,41 @@ package controller
 import (
 	"context"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 )
 
 type CpaNodeDTO struct {
-	Id            int                           `json:"id"`
-	Name          string                        `json:"name"`
-	BaseUrl       string                        `json:"base_url"`
-	NormalizedUrl string                        `json:"normalized_url"`
-	HasApiKey     bool                          `json:"has_api_key"`
-	Status        int                           `json:"status"`
-	Weight        int                           `json:"weight"`
-	Description   string                        `json:"description"`
-	CreatedTime   int64                         `json:"created_time"`
-	UpdatedTime   int64                         `json:"updated_time"`
-	IsOnline      bool                          `json:"is_online"`
-	Latency       int64                         `json:"latency"`
-	HttpStatus    int                           `json:"http_status"`
-	Version       string                        `json:"version"`
-	ModelCount    int                           `json:"model_count"`
-	Models        string                        `json:"models"`
-	LastError     string                        `json:"last_error"`
-	LastCheckAt   int64                         `json:"last_check_at"`
-	ChannelCount  int                           `json:"channel_count"`
-	Channels      []*service.CpaNodeChannelInfo `json:"channels,omitempty"`
-	Usage         *service.CpaNodeUsage         `json:"usage,omitempty"`
+	Id               int                           `json:"id"`
+	Name             string                        `json:"name"`
+	BaseUrl          string                        `json:"base_url"`
+	NormalizedUrl    string                        `json:"normalized_url"`
+	HasApiKey        bool                          `json:"has_api_key"`
+	Status           int                           `json:"status"`
+	Weight           int                           `json:"weight"`
+	Description      string                        `json:"description"`
+	CreatedTime      int64                         `json:"created_time"`
+	UpdatedTime      int64                         `json:"updated_time"`
+	IsOnline         bool                          `json:"is_online"`
+	Latency          int64                         `json:"latency"`
+	HttpStatus       int                           `json:"http_status"`
+	Version          string                        `json:"version"`
+	ModelCount       int                           `json:"model_count"`
+	Models           string                        `json:"models"`
+	AuthFilesCount   int                           `json:"auth_files_count"`
+	AuthFilesSummary []*service.CpaAuthFileInfo    `json:"auth_files_summary,omitempty"`
+	LastError        string                        `json:"last_error"`
+	LastCheckAt      int64                         `json:"last_check_at"`
+	ChannelCount     int                           `json:"channel_count"`
+	Channels         []*service.CpaNodeChannelInfo `json:"channels,omitempty"`
+	Usage            *service.CpaNodeUsage         `json:"usage,omitempty"`
 }
 
 type CreateOrUpdateCpaNodeRequest struct {
@@ -179,6 +183,9 @@ func CreateCpaNode(c *gin.Context) {
 
 	// Immediate background probe
 	go func() {
+		defer func() {
+			_ = recover()
+		}()
 		_, _ = service.ProbeCpaNode(context.Background(), node)
 	}()
 
@@ -389,7 +396,6 @@ func SyncCpaModelsToChannels(c *gin.Context) {
 		if req.Mode == "replace" {
 			finalModels = probeRes.Models
 		} else {
-			// merge mode: union of original + target
 			finalSet := make(map[string]struct{})
 			for _, m := range info.Models {
 				finalSet[m] = struct{}{}
@@ -401,6 +407,8 @@ func SyncCpaModelsToChannels(c *gin.Context) {
 				finalModels = append(finalModels, m)
 			}
 		}
+
+		sort.Strings(finalModels)
 
 		diff := &CpaSyncDiffResult{
 			ChannelId:   chId,
@@ -419,8 +427,8 @@ func SyncCpaModelsToChannels(c *gin.Context) {
 				diff.ErrorMessage = "获取渠道失败: " + err.Error()
 			} else {
 				channel.Models = strings.Join(finalModels, ",")
-				if err := channel.Update(); err != nil {
-					diff.ErrorMessage = "更新渠道失败: " + err.Error()
+				if err := model.DB.Model(&model.Channel{}).Where("id = ?", chId).Update("models", channel.Models).Error; err != nil {
+					diff.ErrorMessage = "更新渠道模型失败: " + err.Error()
 				} else {
 					_ = channel.UpdateAbilities(nil)
 					diff.Applied = true
@@ -471,5 +479,14 @@ func toCpaNodeDTO(node *model.CpaNode, includeDetails bool) *CpaNodeDTO {
 		LastError:     node.LastError,
 		LastCheckAt:   node.LastCheckAt,
 	}
+
+	if node.AuthFilesSummary != "" {
+		var authList []*service.CpaAuthFileInfo
+		if err := common.UnmarshalJsonStr(node.AuthFilesSummary, &authList); err == nil {
+			dto.AuthFilesCount = len(authList)
+			dto.AuthFilesSummary = authList
+		}
+	}
+
 	return dto
 }
