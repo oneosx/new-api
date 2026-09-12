@@ -455,6 +455,59 @@ func SyncCpaModelsToChannels(c *gin.Context) {
 	})
 }
 
+type ResetCodexQuotaRequest struct {
+	AuthFileId string `json:"auth_file_id"`
+	Confirm    bool   `json:"confirm"`
+}
+
+func ResetCodexCredentialQuota(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "无效的节点 ID"})
+		return
+	}
+	node, err := model.GetCpaNodeById(id)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "节点不存在: " + err.Error()})
+		return
+	}
+
+	var req ResetCodexQuotaRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "参数错误: " + err.Error()})
+		return
+	}
+
+	if !req.Confirm {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "必须确认消耗重置额度卡"})
+		return
+	}
+
+	res, err := service.ResetCodexAuthFileQuota(c.Request.Context(), node, req.AuthFileId)
+	if err != nil {
+		recordManageAudit(c, "cpa_node.codex_reset_credits", map[string]any{
+			"node_id":      node.Id,
+			"auth_file_id": req.AuthFileId,
+			"success":      false,
+			"error":        err.Error(),
+		})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "重置失败: " + err.Error()})
+		return
+	}
+
+	recordManageAudit(c, "cpa_node.codex_reset_credits", map[string]any{
+		"node_id":      node.Id,
+		"auth_file_id": req.AuthFileId,
+		"success":      true,
+	})
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "重置成功",
+		"data":    res,
+	})
+}
+
 func toCpaNodeDTO(node *model.CpaNode, includeDetails bool) *CpaNodeDTO {
 	if node == nil {
 		return nil

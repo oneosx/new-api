@@ -18,6 +18,7 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  RotateCcw,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +34,7 @@ import {
   createCpaNode,
   updateCpaNode,
   syncCpaModels,
+  resetCodexCredentialQuota,
 } from './api'
 import { CpaNodeItem, CpaAuthFileInfo } from './types'
 
@@ -44,6 +46,7 @@ export function CpaNodes() {
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false)
   const [selectedNodeForDelete, setSelectedNodeForDelete] = useState<CpaNodeItem | null>(null)
   const [selectedNodeForSync, setSelectedNodeForSync] = useState<CpaNodeItem | null>(null)
+  const [selectedCodexReset, setSelectedCodexReset] = useState<{ nodeId: number; file: CpaAuthFileInfo } | null>(null)
   const [syncMode, setSyncMode] = useState<'merge' | 'replace'>('merge')
   const [confirmReplace, setConfirmReplace] = useState(false)
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({})
@@ -81,6 +84,19 @@ export function CpaNodes() {
     },
     onError: (err: any) => {
       toast.error(err?.message || t('Delete failed'))
+    },
+  })
+
+  const resetCodexMutation = useMutation({
+    mutationFn: ({ nodeId, authFileId }: { nodeId: number; authFileId: string }) =>
+      resetCodexCredentialQuota(nodeId, authFileId),
+    onSuccess: () => {
+      toast.success(t('Rate limit reset credit consumed successfully'))
+      queryClient.invalidateQueries({ queryKey: ['cpa-nodes'] })
+      setSelectedCodexReset(null)
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || t('Failed to reset quota'))
     },
   })
 
@@ -173,7 +189,7 @@ export function CpaNodes() {
   const summary = data?.summary || { total: 0, online: 0, total_requests: 0, total_quota: 0 }
 
   return (
-    <div className="h-full w-full overflow-y-auto p-4 space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-4 space-y-6">
       {/* Header & KPI */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -266,7 +282,7 @@ export function CpaNodes() {
       </div>
 
       {/* Node Cards List */}
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-6 pb-8">
         {items.map((node) => {
           const isOnline = node.is_online
           const usage = node.usage
@@ -383,7 +399,12 @@ export function CpaNodes() {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {authFiles.slice(0, isExpanded ? authFiles.length : 3).map((file, idx) => (
-                        <CPAMCCredentialCard key={file.id || idx} file={file} t={t} />
+                        <CPAMCCredentialCard
+                          key={file.id || idx}
+                          file={file}
+                          t={t}
+                          onResetCodex={() => setSelectedCodexReset({ nodeId: node.id, file })}
+                        />
                       ))}
                     </div>
                   )}
@@ -406,7 +427,7 @@ export function CpaNodes() {
               </CardContent>
 
               {/* Card Footer Actions */}
-              <div className="flex items-center justify-between p-4 border-t bg-muted/10 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2 p-4 border-t bg-muted/10 text-xs">
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="h-3.5 w-3.5" />
                   <span>
@@ -492,6 +513,27 @@ export function CpaNodes() {
         isLoading={deleteMutation.isPending}
         destructive
       />
+
+      {/* Codex Reset Credit Dialog */}
+      {selectedCodexReset && (
+        <ConfirmDialog
+          open={!!selectedCodexReset}
+          onOpenChange={(open) => !open && setSelectedCodexReset(null)}
+          title={t('Consume Rate Limit Reset Credit')}
+          desc={t(
+            'Are you sure you want to consume 1 rate limit reset credit for {{name}}? This will reset the 5-hour and weekly rate limits and cannot be undone.',
+            { name: selectedCodexReset.file.email || selectedCodexReset.file.name }
+          )}
+          handleConfirm={() =>
+            resetCodexMutation.mutate({
+              nodeId: selectedCodexReset.nodeId,
+              authFileId: selectedCodexReset.file.id || selectedCodexReset.file.name,
+            })
+          }
+          isLoading={resetCodexMutation.isPending}
+          destructive
+        />
+      )}
 
       {/* Sync Models Dialog */}
       {selectedNodeForSync && (
@@ -638,7 +680,15 @@ export function CpaNodes() {
   )
 }
 
-function CPAMCCredentialCard({ file, t }: { file: CpaAuthFileInfo; t: any }) {
+function CPAMCCredentialCard({
+  file,
+  t,
+  onResetCodex,
+}: {
+  file: CpaAuthFileInfo
+  t: any
+  onResetCodex?: () => void
+}) {
   const isErr = file.status === 'error' || file.disabled
   const signals = file.quota_signals || {}
   const provider = (file.provider || file.type || '').toLowerCase()
@@ -737,77 +787,77 @@ function CPAMCCredentialCard({ file, t }: { file: CpaAuthFileInfo; t: any }) {
               </div>
             </div>
           )}
+
+          {/* Reset button for Codex */}
+          {onResetCodex && (
+            <div className="pt-1.5 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1 border-primary/30 hover:bg-primary/10 text-primary"
+                onClick={onResetCodex}
+              >
+                <RotateCcw className="h-3 w-3" />
+                {t('Reset Quota')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* 2. Antigravity Provider (Image 5 style: Gemini Flash/Pro + Claude & GPT models) */}
+      {/* 2. Antigravity Provider */}
       {provider === 'antigravity' && (
         <div className="space-y-2 pt-1">
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase">
-            GEMINI {t('Models')}
-          </div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-muted-foreground">{t('Five Hour Limit Remaining')}</span>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                {t('Remaining')} 74%
-              </span>
+          {file.antigravity_groups && file.antigravity_groups.length > 0 ? (
+            file.antigravity_groups.map((group, gIdx) => (
+              <div key={gIdx} className="space-y-1 pt-1 border-t first:border-t-0 first:pt-0">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase truncate">
+                  {group.name}
+                </div>
+                {group.five_hour_limit_percent > 0 && (
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-muted-foreground">{t('5 Hour Limit')}</span>
+                      <span className="font-semibold">{group.five_hour_limit_percent}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500"
+                        style={{ width: `${group.five_hour_limit_percent}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-muted-foreground">{t('Weekly Limit')}</span>
+                    <span className="font-semibold">{group.weekly_limit_percent}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500"
+                      style={{ width: `${group.weekly_limit_percent}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-[11px] text-muted-foreground py-1">
+              {t('Quota info updated during probe')}
             </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500" style={{ width: '74%' }} />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-muted-foreground">{t('Weekly Limit Remaining')}</span>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                {t('Remaining')} 81%
-              </span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500" style={{ width: '81%' }} />
-            </div>
-          </div>
-
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase pt-1">
-            CLAUDE & GPT {t('Models')}
-          </div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-muted-foreground">{t('Weekly Limit Remaining')}</span>
-              <span className="font-semibold text-amber-500">{t('Remaining')} 67%</span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-amber-500" style={{ width: '67%' }} />
-            </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* 3. xAI Provider (Image 5 style: Weekly Limit + GrokBuild + GrokChat) */}
+      {/* 3. xAI Provider */}
       {provider === 'xai' && (
         <div className="space-y-2 pt-1">
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-muted-foreground">{t('Weekly Limit')}</span>
-              <span className="font-semibold text-destructive">{t('Used')} 89%</span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-destructive" style={{ width: '89%' }} />
-            </div>
+          <div className="text-[11px] text-muted-foreground py-1">
+            {t('Weekly Limit')}: <span className="font-semibold text-foreground">89%</span>
           </div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-muted-foreground">GrokBuild {t('Usage')}</span>
-              <span className="font-semibold text-destructive">{t('Used')} 89%</span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-destructive" style={{ width: '89%' }} />
-            </div>
-          </div>
-          <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5">
-            <span>GrokChat {t('Usage')}</span>
-            <span>{t('Used')} --</span>
+          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+            <div className="h-full bg-destructive" style={{ width: '89%' }} />
           </div>
         </div>
       )}

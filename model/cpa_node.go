@@ -162,6 +162,9 @@ func (node *CpaNode) UpdateProbeSnapshotWithAuth(isOnline bool, latency int64, h
 	node.ModelCount = modelCount
 	node.Models = modelsTrimmed
 	node.LastError = lastError
+	if authSummary != "" {
+		node.AuthFilesSummary = authSummary
+	}
 	node.AuthFilesSummary = authSummary
 	node.LastCheckAt = time.Now().Unix()
 	if DB == nil {
@@ -175,9 +178,11 @@ func (node *CpaNode) UpdateProbeSnapshotWithAuth(isOnline bool, latency int64, h
 		"version":            version,
 		"model_count":        modelCount,
 		"models":             modelsTrimmed,
-		"last_error":         lastError,
-		"auth_files_summary": authSummary,
-		"last_check_at":      time.Now().Unix(),
+		"last_error":    lastError,
+		"last_check_at": time.Now().Unix(),
+	}
+	if authSummary != "" {
+		updates["auth_files_summary"] = authSummary
 	}
 	return DB.Model(&CpaNode{}).Where("id = ?", node.Id).Updates(updates).Error
 }

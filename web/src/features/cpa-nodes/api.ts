@@ -64,3 +64,14 @@ export async function syncCpaModels(id: number, req: {
   }
   return res.data?.data || []
 }
+
+export async function resetCodexCredentialQuota(nodeId: number, authFileId: string): Promise<any> {
+  const res = await api.post<{ success: boolean; message?: string; data: any }>(`/api/cpa-node/${nodeId}/reset-codex-quota`, {
+    auth_file_id: authFileId,
+    confirm: true,
+  })
+  if (!res.data?.success) {
+    throw new Error(res.data?.message || 'Failed to reset quota')
+  }
+  return res.data?.data
+}

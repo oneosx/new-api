@@ -29,4 +29,5 @@ var cpaPermissionRoutes = []permissionRoute{
 	{method: http.MethodDelete, path: "/:id", permission: authz.ChannelSensitiveWrite, handler: controller.DeleteCpaNode},
 	{method: http.MethodPost, path: "/:id/test", permission: authz.ChannelOperate, handler: controller.ProbeCpaNode},
 	{method: http.MethodPost, path: "/:id/sync-channels", permission: authz.ChannelWrite, handler: controller.SyncCpaModelsToChannels},
+	{method: http.MethodPost, path: "/:id/reset-codex-quota", permission: authz.ChannelOperate, handler: controller.ResetCodexCredentialQuota},
 }
