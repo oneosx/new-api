@@ -12,22 +12,35 @@ import (
 	"github.com/QuantumNous/new-api/model"
 )
 
+type AntigravityQuotaGroupInfo struct {
+	Name                    string   `json:"name"`
+	Models                  []string `json:"models"`
+	FiveHourLimitRemaining  string   `json:"five_hour_limit_remaining,omitempty"`
+	FiveHourLimitPercent    int      `json:"five_hour_limit_percent"`
+	FiveHourResetAfter      string   `json:"five_hour_reset_after,omitempty"`
+	WeeklyLimitRemaining    string   `json:"weekly_limit_remaining,omitempty"`
+	WeeklyLimitPercent      int      `json:"weekly_limit_percent"`
+	WeeklyResetAfter        string   `json:"weekly_reset_after,omitempty"`
+}
+
 type CpaAuthFileInfo struct {
-	Id             string         `json:"id"`
-	Name           string         `json:"name"`
-	Provider       string         `json:"provider"`
-	Type           string         `json:"type"`
-	Status         string         `json:"status"`
-	Disabled       bool           `json:"disabled"`
-	Email          string         `json:"email,omitempty"`
-	Account        string         `json:"account,omitempty"`
-	PlanType       string         `json:"plan_type,omitempty"`
-	SubscriptionTo string         `json:"subscription_to,omitempty"`
-	QuotaSignals   map[string]any `json:"quota_signals,omitempty"`
-	ModelQuotas    map[string]any `json:"model_quotas,omitempty"`
-	Success        int64          `json:"success"`
-	Failed         int64          `json:"failed"`
-	LastRefresh    string         `json:"last_refresh,omitempty"`
+	Id               string                       `json:"id"`
+	Name             string                       `json:"name"`
+	Provider         string                       `json:"provider"`
+	Type             string                       `json:"type"`
+	Status           string                       `json:"status"`
+	Disabled         bool                         `json:"disabled"`
+	Email            string                       `json:"email,omitempty"`
+	Account          string                       `json:"account,omitempty"`
+	PlanType         string                       `json:"plan_type,omitempty"`
+	SubscriptionTo   string                       `json:"subscription_to,omitempty"`
+	QuotaSignals     map[string]any               `json:"quota_signals,omitempty"`
+	ModelQuotas      map[string]any               `json:"model_quotas,omitempty"`
+	Success          int64                        `json:"success"`
+	Failed           int64                        `json:"failed"`
+	LastRefresh      string                       `json:"last_refresh,omitempty"`
+	// Rich Quota info (CPAMC style)
+	AntigravityGroups []*AntigravityQuotaGroupInfo `json:"antigravity_groups,omitempty"`
 }
 
 type CpaProbeResult struct {
@@ -59,6 +72,8 @@ type rawAuthFilesResponse struct {
 		Email       string `json:"email"`
 		Account     string `json:"account"`
 		LastRefresh string `json:"last_refresh"`
+		AuthIndex   string `json:"auth_index"`
+		ProjectId   string `json:"project_id"`
 		Success     int64  `json:"success"`
 		Failed      int64  `json:"failed"`
 		IdToken     struct {
@@ -104,7 +119,7 @@ func ProbeCpaNode(ctx context.Context, node *model.CpaNode) (*CpaProbeResult, er
 	client := &http.Client{
 		Timeout: 8 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse // Disable open redirects for security
+			return http.ErrUseLastResponse
 		},
 	}
 
@@ -129,7 +144,7 @@ func ProbeCpaNode(ctx context.Context, node *model.CpaNode) (*CpaProbeResult, er
 		version = resp.Header.Get("X-SERVER-VERSION")
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20)) // 2MB limit
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	if err != nil {
 		errMsg := sanitizeCpaError(err.Error(), apiKey)
 		_ = node.UpdateProbeSnapshotWithAuth(false, latency, resp.StatusCode, version, "", errMsg, "")
@@ -211,6 +226,14 @@ func ProbeCpaNode(ctx context.Context, node *model.CpaNode) (*CpaProbeResult, er
 							Failed:         f.Failed,
 							LastRefresh:    f.LastRefresh,
 						}
+
+						// If antigravity, try fetching quota summary via /v0/management/api-call
+						if (f.Provider == "antigravity" || f.Type == "antigravity") && f.AuthIndex != "" && f.ProjectId != "" {
+							if groups := fetchAntigravityQuotaViaApiCall(reqCtx, client, normURL, apiKey, f.AuthIndex, f.ProjectId); len(groups) > 0 {
+								info.AntigravityGroups = groups
+							}
+						}
+
 						authFilesList = append(authFilesList, info)
 					}
 				}
@@ -239,6 +262,85 @@ func ProbeCpaNode(ctx context.Context, node *model.CpaNode) (*CpaProbeResult, er
 		AuthFiles:      authFilesList,
 		Error:          "",
 	}, nil
+}
+
+func fetchAntigravityQuotaViaApiCall(ctx context.Context, client *http.Client, baseURL, apiKey, authIndex, projectID string) []*AntigravityQuotaGroupInfo {
+	callURL := baseURL + "/v0/management/api-call"
+	reqPayload := map[string]any{
+		"authIndex": authIndex,
+		"method":    "POST",
+		"url":       "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+		"header": map[string]string{
+			"Authorization": "Bearer $TOKEN$",
+			"Content-Type":  "application/json",
+		},
+		"data": fmt.Sprintf(`{"project":%q}`, projectID),
+	}
+	bodyBytes, err := common.Marshal(reqPayload)
+	if err != nil {
+		return nil
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, callURL, strings.NewReader(string(bodyBytes)))
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	respBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	type apiCallResp struct {
+		StatusCode int             `json:"status_code"`
+		Body       jsonRawResponse `json:"body"`
+	}
+	var callRes apiCallResp
+	if err := common.Unmarshal(respBytes, &callRes); err != nil || callRes.StatusCode != http.StatusOK {
+		return nil
+	}
+
+	return parseAntigravityGroups(callRes.Body)
+}
+
+type jsonRawResponse struct {
+	Groups []struct {
+		Name   string   `json:"name"`
+		Models []string `json:"models"`
+		Limits []struct {
+			Duration string `json:"duration"`
+			Percent  int    `json:"percent"`
+			Remaining string `json:"remaining"`
+			ResetAfter string `json:"reset_after"`
+		} `json:"limits"`
+	} `json:"groups"`
+}
+
+func parseAntigravityGroups(raw jsonRawResponse) []*AntigravityQuotaGroupInfo {
+	var results []*AntigravityQuotaGroupInfo
+	for _, g := range raw.Groups {
+		item := &AntigravityQuotaGroupInfo{
+			Name:   g.Name,
+			Models: g.Models,
+		}
+		for _, l := range g.Limits {
+			if strings.Contains(strings.ToLower(l.Duration), "5h") || strings.Contains(strings.ToLower(l.Duration), "five") {
+				item.FiveHourLimitPercent = l.Percent
+				item.FiveHourLimitRemaining = l.Remaining
+				item.FiveHourResetAfter = l.ResetAfter
+			} else {
+				item.WeeklyLimitPercent = l.Percent
+				item.WeeklyLimitRemaining = l.Remaining
+				item.WeeklyResetAfter = l.ResetAfter
+			}
+		}
+		results = append(results, item)
+	}
+	return results
 }
 
 func sanitizeCpaError(msg, key string) string {

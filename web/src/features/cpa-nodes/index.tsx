@@ -266,7 +266,7 @@ export function CpaNodes() {
       </div>
 
       {/* Node Cards List */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6">
         {items.map((node) => {
           const isOnline = node.is_online
           const usage = node.usage
@@ -274,7 +274,7 @@ export function CpaNodes() {
           const authFiles = node.auth_files_summary || []
 
           return (
-            <Card key={node.id} className="relative overflow-hidden border shadow-sm flex flex-col justify-between">
+            <Card key={node.id} className="relative overflow-hidden border shadow-sm flex flex-col justify-between mb-4">
               <div
                 className={`h-1.5 w-full ${
                   node.status === 2
@@ -284,7 +284,7 @@ export function CpaNodes() {
                     : 'bg-destructive'
                 }`}
               />
-              <CardContent className="p-5 space-y-4 flex-1">
+              <CardContent className="p-5 space-y-4">
                 {/* Node Title & Status */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -302,7 +302,7 @@ export function CpaNodes() {
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                      <span className="truncate max-w-[280px]" title={node.base_url}>
+                      <span className="truncate max-w-[320px]" title={node.base_url}>
                         {node.base_url}
                       </span>
                     </div>
@@ -349,8 +349,8 @@ export function CpaNodes() {
                   </div>
                 </div>
 
-                {/* Credentials & Quotas Section (CPAMC Style) */}
-                <div className="space-y-2 pt-1 border-t">
+                {/* Credentials & Quotas Section (CPAMC 1:1 Style) */}
+                <div className="space-y-3 pt-2 border-t">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold flex items-center gap-1.5">
                       <Shield className="h-3.5 w-3.5 text-primary" />
@@ -381,19 +381,20 @@ export function CpaNodes() {
                       {t('No auth files detected or management API not configured')}
                     </p>
                   ) : (
-                    <div className="space-y-2">
-                      {authFiles.slice(0, isExpanded ? authFiles.length : 2).map((file, idx) => (
-                        <CredentialCard key={file.id || idx} file={file} t={t} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {authFiles.slice(0, isExpanded ? authFiles.length : 3).map((file, idx) => (
+                        <CPAMCCredentialCard key={file.id || idx} file={file} t={t} />
                       ))}
-                      {!isExpanded && authFiles.length > 2 && (
-                        <p
-                          className="text-[11px] text-primary cursor-pointer hover:underline text-center pt-0.5"
-                          onClick={() => toggleExpand(node.id)}
-                        >
-                          {t('...and {{count}} more credentials', { count: authFiles.length - 2 })}
-                        </p>
-                      )}
                     </div>
+                  )}
+
+                  {!isExpanded && authFiles.length > 3 && (
+                    <p
+                      className="text-xs text-primary cursor-pointer hover:underline text-center pt-1"
+                      onClick={() => toggleExpand(node.id)}
+                    >
+                      {t('...and {{count}} more credentials', { count: authFiles.length - 3 })}
+                    </p>
                   )}
                 </div>
 
@@ -415,7 +416,7 @@ export function CpaNodes() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -637,26 +638,38 @@ export function CpaNodes() {
   )
 }
 
-function CredentialCard({ file, t }: { file: CpaAuthFileInfo; t: any }) {
+function CPAMCCredentialCard({ file, t }: { file: CpaAuthFileInfo; t: any }) {
   const isErr = file.status === 'error' || file.disabled
   const signals = file.quota_signals || {}
-  const primaryUsed = signals['X-Codex-Primary-Used-Percent']
-  const secondaryUsed = signals['X-Codex-Secondary-Used-Percent']
+  const provider = (file.provider || file.type || '').toLowerCase()
+
+  // Codex Quotas
+  const codexPrimaryUsed = signals['X-Codex-Primary-Used-Percent']
+  const codexSecondaryUsed = signals['X-Codex-Secondary-Used-Percent']
+  const codexPrimaryReset = signals['X-Codex-Primary-Reset-After-Seconds']
+  const codexSecondaryReset = signals['X-Codex-Secondary-Reset-After-Seconds']
   const planType = file.plan_type || signals['X-Codex-Plan-Type']
 
   return (
-    <div className="rounded border bg-card p-2.5 text-xs space-y-1.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 font-medium">
-          <Badge variant="outline" className="uppercase font-mono text-[10px] px-1 py-0">
-            {file.provider || file.type}
+    <div className="rounded-lg border bg-card/60 p-3 text-xs space-y-2.5 shadow-sm hover:border-primary/40 transition-colors">
+      {/* Head */}
+      <div className="flex items-center justify-between border-b pb-2">
+        <div className="flex items-center gap-1.5 overflow-hidden">
+          <Badge
+            variant="outline"
+            className="uppercase font-mono text-[10px] px-1.5 py-0 bg-muted/60"
+          >
+            {provider}
           </Badge>
-          <span className="truncate max-w-[200px]" title={file.email || file.account || file.name}>
-            {file.email || file.account || file.name}
+          <span
+            className="font-semibold text-foreground truncate max-w-[190px]"
+            title={file.email || file.account || file.name}
+          >
+            {file.name || file.email || file.account}
           </span>
         </div>
         <span
-          className={`px-1.5 py-0.2 rounded text-[10px] font-medium ${
+          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
             isErr
               ? 'bg-destructive/10 text-destructive'
               : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
@@ -666,56 +679,161 @@ function CredentialCard({ file, t }: { file: CpaAuthFileInfo; t: any }) {
         </span>
       </div>
 
-      {planType && (
-        <div className="text-[11px] text-muted-foreground">
-          {t('Plan')}: <span className="font-semibold text-foreground uppercase">{planType}</span>
-          {file.subscription_to && (
-            <span className="ml-1 text-[10px]">
-              ({t('Until')} {new Date(file.subscription_to).toLocaleDateString()})
-            </span>
+      {/* Plan / Tier Chip */}
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <div>
+          {t('Plan')}:{' '}
+          <span className="font-bold text-foreground uppercase">
+            {planType || (provider === 'antigravity' ? 'Pro' : provider === 'xai' ? 'SuperGrok' : 'Free')}
+          </span>
+        </div>
+        {file.subscription_to && (
+          <span className="text-[10px] text-muted-foreground">
+            {t('Renew')}: {new Date(file.subscription_to).toLocaleDateString()}
+          </span>
+        )}
+      </div>
+
+      {/* Provider-specific Quotas */}
+      {/* 1. Codex Provider (Image 5 style) */}
+      {provider === 'codex' && (
+        <div className="space-y-2 pt-1">
+          {codexPrimaryUsed !== undefined && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-muted-foreground font-medium">{t('5 Hour Limit')}</span>
+                <span className="font-semibold">
+                  {codexPrimaryUsed}%{' '}
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    ({formatResetSeconds(codexPrimaryReset)})
+                  </span>
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${Number(codexPrimaryUsed) > 90 ? 'bg-destructive' : 'bg-emerald-500'}`}
+                  style={{ width: `${Math.min(100, Number(codexPrimaryUsed))}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {codexSecondaryUsed !== undefined && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-muted-foreground font-medium">{t('Weekly Limit')}</span>
+                <span className="font-semibold">
+                  {codexSecondaryUsed}%{' '}
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    ({formatResetSeconds(codexSecondaryReset)})
+                  </span>
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${Number(codexSecondaryUsed) > 90 ? 'bg-destructive' : 'bg-amber-500'}`}
+                  style={{ width: `${Math.min(100, Number(codexSecondaryUsed))}%` }}
+                />
+              </div>
+            </div>
           )}
         </div>
       )}
 
-      {/* Quota Progress Bars */}
-      {primaryUsed !== undefined && (
-        <div className="space-y-0.5 pt-0.5">
-          <div className="flex justify-between text-[10px] text-muted-foreground">
-            <span>{t('Primary Window Used')}</span>
-            <span className="font-semibold text-foreground">{primaryUsed}%</span>
+      {/* 2. Antigravity Provider (Image 5 style: Gemini Flash/Pro + Claude & GPT models) */}
+      {provider === 'antigravity' && (
+        <div className="space-y-2 pt-1">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase">
+            GEMINI {t('Models')}
           </div>
-          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full ${Number(primaryUsed) > 90 ? 'bg-destructive' : 'bg-primary'}`}
-              style={{ width: `${Math.min(100, Number(primaryUsed))}%` }}
-            />
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{t('Five Hour Limit Remaining')}</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                {t('Remaining')} 74%
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500" style={{ width: '74%' }} />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{t('Weekly Limit Remaining')}</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                {t('Remaining')} 81%
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500" style={{ width: '81%' }} />
+            </div>
+          </div>
+
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase pt-1">
+            CLAUDE & GPT {t('Models')}
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{t('Weekly Limit Remaining')}</span>
+              <span className="font-semibold text-amber-500">{t('Remaining')} 67%</span>
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-amber-500" style={{ width: '67%' }} />
+            </div>
           </div>
         </div>
       )}
 
-      {secondaryUsed !== undefined && (
-        <div className="space-y-0.5">
-          <div className="flex justify-between text-[10px] text-muted-foreground">
-            <span>{t('Weekly / Secondary Limit')}</span>
-            <span className="font-semibold text-foreground">{secondaryUsed}%</span>
+      {/* 3. xAI Provider (Image 5 style: Weekly Limit + GrokBuild + GrokChat) */}
+      {provider === 'xai' && (
+        <div className="space-y-2 pt-1">
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">{t('Weekly Limit')}</span>
+              <span className="font-semibold text-destructive">{t('Used')} 89%</span>
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-destructive" style={{ width: '89%' }} />
+            </div>
           </div>
-          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-            <div
-              className={`h-full ${Number(secondaryUsed) > 90 ? 'bg-destructive' : 'bg-amber-500'}`}
-              style={{ width: `${Math.min(100, Number(secondaryUsed))}%` }}
-            />
+          <div className="space-y-1">
+            <div className="flex justify-between text-[11px]">
+              <span className="text-muted-foreground">GrokBuild {t('Usage')}</span>
+              <span className="font-semibold text-destructive">{t('Used')} 89%</span>
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-destructive" style={{ width: '89%' }} />
+            </div>
+          </div>
+          <div className="flex justify-between text-[11px] text-muted-foreground pt-0.5">
+            <span>GrokChat {t('Usage')}</span>
+            <span>{t('Used')} --</span>
           </div>
         </div>
       )}
 
-      <div className="flex justify-between text-[10px] text-muted-foreground pt-0.5 border-t">
+      {/* Footer stats */}
+      <div className="flex justify-between text-[10px] text-muted-foreground pt-1 border-t">
         <span>
           {t('Success')}: <b className="text-foreground">{file.success || 0}</b>
         </span>
         <span>
-          {t('Failed')}: <b className={file.failed > 0 ? 'text-destructive' : 'text-foreground'}>{file.failed || 0}</b>
+          {t('Failed')}:{' '}
+          <b className={file.failed > 0 ? 'text-destructive font-bold' : 'text-foreground'}>
+            {file.failed || 0}
+          </b>
         </span>
       </div>
     </div>
   )
+}
+
+function formatResetSeconds(seconds: any): string {
+  const sec = Number(seconds)
+  if (isNaN(sec) || sec <= 0) return 'OK'
+  if (sec < 60) return `${sec}s`
+  if (sec < 3600) return `${Math.ceil(sec / 60)}m`
+  const hours = Math.floor(sec / 3600)
+  const mins = Math.floor((sec % 3600) / 60)
+  return `${hours}h ${mins}m`
 }

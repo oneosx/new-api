@@ -1,3 +1,14 @@
+export interface AntigravityQuotaGroupInfo {
+  name: string
+  models: string[]
+  five_hour_limit_remaining?: string
+  five_hour_limit_percent: number
+  five_hour_reset_after?: string
+  weekly_limit_remaining?: string
+  weekly_limit_percent: number
+  weekly_reset_after?: string
+}
+
 export interface CpaAuthFileInfo {
   id: string
   name: string
@@ -14,6 +25,7 @@ export interface CpaAuthFileInfo {
   success: number
   failed: number
   last_refresh?: string
+  antigravity_groups?: AntigravityQuotaGroupInfo[]
 }
 
 export interface CpaNodeChannelInfo {
