@@ -131,6 +131,8 @@ func InitOptionMap() {
 	common.OptionMap["WeChatPaySerialNo"] = setting.WeChatPaySerialNoValue
 	common.OptionMap["WeChatPayPrivateKey"] = setting.WeChatPayPrivateKeyPEM
 	common.OptionMap["WeChatPayPrivateKeyPath"] = setting.WeChatPayPrivateKeyFile
+	common.OptionMap["WeChatPayPlatformCertificate"] = setting.WeChatPayPlatformCertificatePEM
+	common.OptionMap["WeChatPayPlatformSerialNo"] = setting.WeChatPayPlatformSerialNoValue
 	common.OptionMap["WeChatPayNotifyURL"] = setting.WeChatPayNotifyURLValue
 	common.OptionMap["WeChatPayRefundNotifyURL"] = setting.WeChatPayRefundNotifyURLValue
 	common.OptionMap["WeChatPayMinTopUp"] = strconv.FormatInt(setting.WeChatPayMinTopUpValue, 10)
@@ -547,6 +549,12 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.BumpWeChatPayConfig()
 	case "WeChatPayPrivateKeyPath":
 		setting.WeChatPayPrivateKeyFile = value
+		setting.BumpWeChatPayConfig()
+	case "WeChatPayPlatformCertificate":
+		setting.WeChatPayPlatformCertificatePEM = value
+		setting.BumpWeChatPayConfig()
+	case "WeChatPayPlatformSerialNo":
+		setting.WeChatPayPlatformSerialNoValue = value
 		setting.BumpWeChatPayConfig()
 	case "WeChatPayNotifyURL":
 		setting.WeChatPayNotifyURLValue = value

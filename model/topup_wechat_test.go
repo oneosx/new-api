@@ -161,3 +161,13 @@ func TestManualCompleteTopUpRejectsWeChatOrders(t *testing.T) {
 	assert.Equal(t, common.TopUpStatusPending, getTopUpStatusForPaymentGuardTest(t, "WXTESTMANUAL"))
 	assert.Equal(t, 0, getUserQuotaForPaymentGuardTest(t, user.Id))
 }
+
+func TestWeChatTopUpQuotaUsesStoredAmountUnits(t *testing.T) {
+	oldQuotaPerUnit := common.QuotaPerUnit
+	common.QuotaPerUnit = 500000
+	t.Cleanup(func() { common.QuotaPerUnit = oldQuotaPerUnit })
+
+	quota, err := wechatTopUpQuota(&TopUp{Amount: 2, Money: 9.99})
+	require.NoError(t, err)
+	assert.Equal(t, 1_000_000, quota)
+}

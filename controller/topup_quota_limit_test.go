@@ -201,3 +201,42 @@ func TestStripeCreditedQuotaIncludesGroupRatio(t *testing.T) {
 	require.NoError(t, common.UpdateTopupGroupRatioByJSONString(`{"free":0}`))
 	assert.True(t, decimal.NewFromInt(500000).Equal(getStripeCreditedQuota(1, "free")))
 }
+
+func TestWeChatStoredTopUpAmountConvertsTokenDisplayUnits(t *testing.T) {
+	oldQuotaPerUnit := common.QuotaPerUnit
+	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
+	common.QuotaPerUnit = 500000
+	t.Cleanup(func() {
+		common.QuotaPerUnit = oldQuotaPerUnit
+		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+	})
+
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	stored, err := wechatStoredTopUpAmount(2)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), stored)
+
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeTokens
+	stored, err = wechatStoredTopUpAmount(1_000_000)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), stored)
+
+	_, err = wechatStoredTopUpAmount(1_000_001)
+	require.EqualError(t, err, "Token 充值数量必须是额度单位的整数倍")
+}
+
+func TestWeChatPayMinTopupConvertsTokenDisplayUnits(t *testing.T) {
+	oldQuotaPerUnit := common.QuotaPerUnit
+	oldDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
+	common.QuotaPerUnit = 500000
+	t.Cleanup(func() {
+		common.QuotaPerUnit = oldQuotaPerUnit
+		operation_setting.GetGeneralSetting().QuotaDisplayType = oldDisplayType
+	})
+
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+	assert.Equal(t, int64(1), wechatPayMinTopup())
+
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeTokens
+	assert.Equal(t, int64(500000), wechatPayMinTopup())
+}

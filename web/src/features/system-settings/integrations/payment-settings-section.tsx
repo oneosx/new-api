@@ -187,6 +187,8 @@ const paymentSchema = z.object({
   WeChatPaySerialNo: z.string(),
   WeChatPayPrivateKey: z.string(),
   WeChatPayPrivateKeyPath: z.string(),
+  WeChatPayPlatformCertificate: z.string(),
+  WeChatPayPlatformSerialNo: z.string(),
   WeChatPayNotifyURL: z.string(),
   WeChatPayRefundNotifyURL: z.string(),
   WeChatPayMinTopUp: z.coerce.number().min(1),
@@ -491,6 +493,9 @@ export function PaymentSettingsSection({
       WeChatPaySerialNo: values.WeChatPaySerialNo.trim(),
       WeChatPayPrivateKey: values.WeChatPayPrivateKey.trim(),
       WeChatPayPrivateKeyPath: values.WeChatPayPrivateKeyPath.trim(),
+      WeChatPayPlatformCertificate:
+        values.WeChatPayPlatformCertificate.trim(),
+      WeChatPayPlatformSerialNo: values.WeChatPayPlatformSerialNo.trim(),
       WeChatPayNotifyURL: values.WeChatPayNotifyURL.trim(),
       WeChatPayRefundNotifyURL: values.WeChatPayRefundNotifyURL.trim(),
       WeChatPayMinTopUp: values.WeChatPayMinTopUp,
@@ -549,6 +554,10 @@ export function PaymentSettingsSection({
       WeChatPayPrivateKey: initialRef.current.WeChatPayPrivateKey.trim(),
       WeChatPayPrivateKeyPath:
         initialRef.current.WeChatPayPrivateKeyPath.trim(),
+      WeChatPayPlatformCertificate:
+        initialRef.current.WeChatPayPlatformCertificate.trim(),
+      WeChatPayPlatformSerialNo:
+        initialRef.current.WeChatPayPlatformSerialNo.trim(),
       WeChatPayNotifyURL: initialRef.current.WeChatPayNotifyURL.trim(),
       WeChatPayRefundNotifyURL:
         initialRef.current.WeChatPayRefundNotifyURL.trim(),
@@ -792,6 +801,24 @@ export function PaymentSettingsSection({
         value: sanitized.WeChatPayPrivateKeyPath,
       })
     }
+    if (
+      sanitized.WeChatPayPlatformCertificate &&
+      sanitized.WeChatPayPlatformCertificate !==
+        initial.WeChatPayPlatformCertificate
+    ) {
+      updates.push({
+        key: 'WeChatPayPlatformCertificate',
+        value: sanitized.WeChatPayPlatformCertificate,
+      })
+    }
+    if (
+      sanitized.WeChatPayPlatformSerialNo !== initial.WeChatPayPlatformSerialNo
+    ) {
+      updates.push({
+        key: 'WeChatPayPlatformSerialNo',
+        value: sanitized.WeChatPayPlatformSerialNo,
+      })
+    }
     if (sanitized.WeChatPayNotifyURL !== initial.WeChatPayNotifyURL) {
       updates.push({
         key: 'WeChatPayNotifyURL',
@@ -915,6 +942,9 @@ export function PaymentSettingsSection({
     WeChatPaySerialNo: currentFormValues.WeChatPaySerialNo,
     WeChatPayPrivateKey: currentFormValues.WeChatPayPrivateKey,
     WeChatPayPrivateKeyPath: currentFormValues.WeChatPayPrivateKeyPath,
+    WeChatPayPlatformCertificate:
+      currentFormValues.WeChatPayPlatformCertificate,
+    WeChatPayPlatformSerialNo: currentFormValues.WeChatPayPlatformSerialNo,
     WeChatPayNotifyURL: currentFormValues.WeChatPayNotifyURL,
     WeChatPayRefundNotifyURL: currentFormValues.WeChatPayRefundNotifyURL,
     WeChatPayMinTopUp: currentFormValues.WeChatPayMinTopUp,

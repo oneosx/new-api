@@ -17,17 +17,19 @@ const (
 )
 
 var (
-	WeChatPayEnabled              bool
-	WeChatPayAppIDValue           string
-	WeChatPayMchIDValue           string
-	WeChatPayAPIv3KeyValue        string
-	WeChatPaySerialNoValue        string
-	WeChatPayPrivateKeyPEM        string
-	WeChatPayPrivateKeyFile       string
-	WeChatPayNotifyURLValue       string
-	WeChatPayRefundNotifyURLValue string
-	WeChatPayMinTopUpValue        int64 = WeChatPayMinTopUp
-	wechatPayConfigVersion        int64
+	WeChatPayEnabled                bool
+	WeChatPayAppIDValue             string
+	WeChatPayMchIDValue             string
+	WeChatPayAPIv3KeyValue          string
+	WeChatPaySerialNoValue          string
+	WeChatPayPrivateKeyPEM          string
+	WeChatPayPrivateKeyFile         string
+	WeChatPayPlatformCertificatePEM string
+	WeChatPayPlatformSerialNoValue  string
+	WeChatPayNotifyURLValue         string
+	WeChatPayRefundNotifyURLValue   string
+	WeChatPayMinTopUpValue          int64 = WeChatPayMinTopUp
+	wechatPayConfigVersion          int64
 )
 
 func BumpWeChatPayConfig() {
@@ -67,6 +69,14 @@ func WeChatPayPrivateKeyPEMValue() string {
 
 func WeChatPayPrivateKeyPath() string {
 	return wechatPayEnvOrStored("WECHAT_PAY_PRIVATE_KEY_PATH", WeChatPayPrivateKeyFile)
+}
+
+func WeChatPayPlatformCertificatePEMValue() string {
+	return wechatPayEnvOrStored("WECHAT_PAY_PLATFORM_CERTIFICATE", WeChatPayPlatformCertificatePEM)
+}
+
+func WeChatPayPlatformSerialNo() string {
+	return wechatPayEnvOrStored("WECHAT_PAY_PLATFORM_SERIAL_NO", WeChatPayPlatformSerialNoValue)
 }
 
 func wechatPayCallbackBase() string {
@@ -123,7 +133,10 @@ func wechatPayEnabled() bool {
 }
 
 func IsWeChatPayConfigured() bool {
-	if WeChatPayAppID() == "" || WeChatPayMchID() == "" || WeChatPayAPIv3Key() == "" || WeChatPaySerialNo() == "" {
+	if WeChatPayAppID() == "" || WeChatPayMchID() == "" || len(WeChatPayAPIv3Key()) != 32 || WeChatPaySerialNo() == "" {
+		return false
+	}
+	if WeChatPayPlatformCertificatePEMValue() == "" || WeChatPayPlatformSerialNo() == "" {
 		return false
 	}
 	if WeChatPayPrivateKeyPEMValue() == "" {

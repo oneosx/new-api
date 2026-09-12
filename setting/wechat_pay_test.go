@@ -16,6 +16,8 @@ func resetWeChatPaySettings() {
 	WeChatPaySerialNoValue = ""
 	WeChatPayPrivateKeyPEM = ""
 	WeChatPayPrivateKeyFile = ""
+	WeChatPayPlatformCertificatePEM = ""
+	WeChatPayPlatformSerialNoValue = ""
 	WeChatPayNotifyURLValue = ""
 	WeChatPayRefundNotifyURLValue = ""
 	WeChatPayMinTopUpValue = WeChatPayMinTopUp
@@ -29,6 +31,8 @@ func TestIsWeChatPayEnabledRequiresEnvAndCert(t *testing.T) {
 	t.Setenv("WECHAT_PAY_APIV3_KEY", "1234567890abcdef1234567890abcdef")
 	t.Setenv("WECHAT_PAY_SERIAL_NO", "ABC")
 	t.Setenv("WECHAT_PAY_NOTIFY_URL", "https://example.com/api/user/wechat/notify")
+	t.Setenv("WECHAT_PAY_PLATFORM_CERTIFICATE", "-----BEGIN CERTIFICATE-----\ndummy\n-----END CERTIFICATE-----")
+	t.Setenv("WECHAT_PAY_PLATFORM_SERIAL_NO", "PLATFORM-ABC")
 
 	missing := filepath.Join(t.TempDir(), "missing.pem")
 	t.Setenv("WECHAT_PAY_PRIVATE_KEY_PATH", missing)
@@ -52,6 +56,8 @@ func TestIsWeChatPayEnabledUsesAdminOptions(t *testing.T) {
 	WeChatPayAPIv3KeyValue = "1234567890abcdef1234567890abcdef"
 	WeChatPaySerialNoValue = "ABC"
 	WeChatPayPrivateKeyPEM = "-----BEGIN PRIVATE KEY-----\ndummy\n-----END PRIVATE KEY-----"
+	WeChatPayPlatformCertificatePEM = "-----BEGIN CERTIFICATE-----\ndummy\n-----END CERTIFICATE-----"
+	WeChatPayPlatformSerialNoValue = "PLATFORM-ABC"
 	WeChatPayNotifyURLValue = "https://example.com/api/user/wechat/notify"
 
 	require.True(t, IsWeChatPayEnabled())

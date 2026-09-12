@@ -110,6 +110,8 @@ const defaultBillingSettings: BillingSettings = {
   WeChatPaySerialNo: '',
   WeChatPayPrivateKey: '',
   WeChatPayPrivateKeyPath: '',
+  WeChatPayPlatformCertificate: '',
+  WeChatPayPlatformSerialNo: '',
   WeChatPayNotifyURL: '',
   WeChatPayRefundNotifyURL: '',
   WeChatPayMinTopUp: 1,

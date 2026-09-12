@@ -27,6 +27,32 @@ import (
 
 const wechatPayAPIBase = "https://api.mch.weixin.qq.com"
 
+var (
+	ErrWeChatPayNotFound      = errors.New("wechat pay resource not found")
+	ErrWeChatPayRejected      = errors.New("wechat pay request rejected")
+	ErrWeChatPayStatusUnknown = errors.New("wechat pay request status unknown")
+)
+
+type wechatPayAPIError struct {
+	statusCode int
+	message    string
+}
+
+func (e *wechatPayAPIError) Error() string {
+	return e.message
+}
+
+func (e *wechatPayAPIError) Unwrap() error {
+	switch {
+	case e.statusCode == http.StatusNotFound:
+		return ErrWeChatPayNotFound
+	case e.statusCode >= 400 && e.statusCode < 500 && e.statusCode != http.StatusTooManyRequests:
+		return ErrWeChatPayRejected
+	default:
+		return ErrWeChatPayStatusUnknown
+	}
+}
+
 type WeChatJSAPIPrepay struct {
 	PrepayID  string
 	TimeStamp string
@@ -37,8 +63,9 @@ type WeChatJSAPIPrepay struct {
 }
 
 type wechatPayClient struct {
-	httpClient *http.Client
-	privateKey *rsa.PrivateKey
+	httpClient        *http.Client
+	privateKey        *rsa.PrivateKey
+	platformPublicKey *rsa.PublicKey
 }
 
 var (
@@ -83,6 +110,80 @@ func parseWeChatPrivateKey(keyPEM []byte) (*rsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
+func parseWeChatPlatformPublicKey(certificatePEM []byte) (*rsa.PublicKey, error) {
+	block, _ := pem.Decode(certificatePEM)
+	if block == nil {
+		return nil, errors.New("invalid wechat platform certificate pem")
+	}
+
+	var publicKey any
+	var err error
+	switch block.Type {
+	case "CERTIFICATE":
+		certificate, certificateErr := x509.ParseCertificate(block.Bytes)
+		if certificateErr != nil {
+			return nil, fmt.Errorf("parse wechat platform certificate: %w", certificateErr)
+		}
+		publicKey = certificate.PublicKey
+	case "PUBLIC KEY":
+		publicKey, err = x509.ParsePKIXPublicKey(block.Bytes)
+	case "RSA PUBLIC KEY":
+		publicKey, err = x509.ParsePKCS1PublicKey(block.Bytes)
+	default:
+		return nil, errors.New("unsupported wechat platform certificate pem")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("parse wechat platform public key: %w", err)
+	}
+
+	rsaPublicKey, ok := publicKey.(*rsa.PublicKey)
+	if !ok {
+		return nil, errors.New("wechat platform public key is not rsa")
+	}
+	return rsaPublicKey, nil
+}
+
+func (c *wechatPayClient) verifySignature(headers http.Header, body []byte) error {
+	timestamp := strings.TrimSpace(headers.Get("Wechatpay-Timestamp"))
+	nonce := strings.TrimSpace(headers.Get("Wechatpay-Nonce"))
+	serialNo := strings.TrimSpace(headers.Get("Wechatpay-Serial"))
+	signature := strings.TrimSpace(headers.Get("Wechatpay-Signature"))
+	if timestamp == "" || nonce == "" || serialNo == "" || signature == "" {
+		return errors.New("wechat signature headers are incomplete")
+	}
+	if serialNo != setting.WeChatPayPlatformSerialNo() {
+		return errors.New("wechat platform certificate serial does not match")
+	}
+
+	signedAt, err := strconv.ParseInt(timestamp, 10, 64)
+	if err != nil {
+		return errors.New("invalid wechat signature timestamp")
+	}
+	now := time.Now()
+	if signedAt < now.Add(-5*time.Minute).Unix() || signedAt > now.Add(5*time.Minute).Unix() {
+		return errors.New("wechat signature timestamp is outside the allowed window")
+	}
+
+	rawSignature, err := base64.StdEncoding.DecodeString(signature)
+	if err != nil {
+		return fmt.Errorf("decode wechat signature: %w", err)
+	}
+	message := timestamp + "\n" + nonce + "\n" + string(body) + "\n"
+	digest := sha256.Sum256([]byte(message))
+	if err := rsa.VerifyPKCS1v15(c.platformPublicKey, crypto.SHA256, digest[:], rawSignature); err != nil {
+		return fmt.Errorf("verify wechat signature: %w", err)
+	}
+	return nil
+}
+
+func VerifyWeChatNotification(headers http.Header, body []byte) error {
+	client, err := getWeChatPayClient()
+	if err != nil {
+		return err
+	}
+	return client.verifySignature(headers, body)
+}
+
 func getWeChatPayClient() (*wechatPayClient, error) {
 	version := setting.WeChatPayConfigVersion()
 	wechatPayMu.Lock()
@@ -104,9 +205,17 @@ func getWeChatPayClient() (*wechatPayClient, error) {
 		wechatPayCliVer = version
 		return nil, err
 	}
+	platformPublicKey, err := parseWeChatPlatformPublicKey([]byte(setting.WeChatPayPlatformCertificatePEMValue()))
+	if err != nil {
+		wechatPayCli = nil
+		wechatPayCliErr = err
+		wechatPayCliVer = version
+		return nil, err
+	}
 	wechatPayCli = &wechatPayClient{
-		httpClient: &http.Client{Timeout: 15 * time.Second},
-		privateKey: privateKey,
+		httpClient:        &http.Client{Timeout: 15 * time.Second},
+		privateKey:        privateKey,
+		platformPublicKey: platformPublicKey,
 	}
 	wechatPayCliErr = nil
 	wechatPayCliVer = version
@@ -175,8 +284,14 @@ func (c *wechatPayClient) doJSON(method, path string, payload any) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
+	if err := c.verifySignature(resp.Header, respBody); err != nil {
+		return nil, err
+	}
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("wechat pay api %s: %s", resp.Status, strings.TrimSpace(string(respBody)))
+		return nil, &wechatPayAPIError{
+			statusCode: resp.StatusCode,
+			message:    fmt.Sprintf("wechat pay api %s: %s", resp.Status, strings.TrimSpace(string(respBody))),
+		}
 	}
 	return respBody, nil
 }
@@ -271,6 +386,40 @@ func CreateWeChatRefund(tradeNo, refundNo, reason, transactionID string, refundC
 	return err
 }
 
+func WeChatRefundNo(tradeNo string) string {
+	digest := sha256.Sum256([]byte(tradeNo))
+	return "R" + fmt.Sprintf("%x", digest)[:63]
+}
+
+type WeChatRefundQuery struct {
+	MchID       string `json:"mchid"`
+	OutTradeNo  string `json:"out_trade_no"`
+	OutRefundNo string `json:"out_refund_no"`
+	RefundID    string `json:"refund_id"`
+	Status      string `json:"status"`
+	Amount      struct {
+		Total  int64 `json:"total"`
+		Refund int64 `json:"refund"`
+	} `json:"amount"`
+}
+
+func QueryWeChatRefund(refundNo string) (*WeChatRefundQuery, error) {
+	client, err := getWeChatPayClient()
+	if err != nil {
+		return nil, err
+	}
+	path := "/v3/refund/domestic/refunds/" + url.PathEscape(refundNo)
+	respBody, err := client.doJSON(http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	var parsed WeChatRefundQuery
+	if err := common.Unmarshal(respBody, &parsed); err != nil {
+		return nil, err
+	}
+	return &parsed, nil
+}
+
 type WeChatResourceNotification struct {
 	ID           string `json:"id"`
 	CreateTime   string `json:"create_time"`
@@ -315,6 +464,9 @@ type WeChatRefundNotification struct {
 }
 
 func decryptWeChatResource(ciphertext, associatedData, nonce, apiV3Key string) ([]byte, error) {
+	if len(apiV3Key) != 32 {
+		return nil, errors.New("invalid wechat api v3 key length")
+	}
 	raw, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
 		return nil, err
@@ -327,6 +479,9 @@ func decryptWeChatResource(ciphertext, associatedData, nonce, apiV3Key string) (
 	if err != nil {
 		return nil, err
 	}
+	if len(nonce) != gcm.NonceSize() {
+		return nil, errors.New("invalid wechat resource nonce length")
+	}
 	return gcm.Open(nil, []byte(nonce), raw, []byte(associatedData))
 }
 
@@ -334,6 +489,9 @@ func ParseWeChatNotification(body []byte) (*WeChatResourceNotification, error) {
 	var notification WeChatResourceNotification
 	if err := common.Unmarshal(body, &notification); err != nil {
 		return nil, err
+	}
+	if notification.Resource.Algorithm != "AEAD_AES_256_GCM" || notification.Resource.Ciphertext == "" || notification.Resource.Nonce == "" {
+		return nil, errors.New("invalid wechat encrypted resource")
 	}
 	return &notification, nil
 }

@@ -337,6 +337,8 @@ export type BillingSettings = {
   WeChatPaySerialNo: string
   WeChatPayPrivateKey: string
   WeChatPayPrivateKeyPath: string
+  WeChatPayPlatformCertificate: string
+  WeChatPayPlatformSerialNo: string
   WeChatPayNotifyURL: string
   WeChatPayRefundNotifyURL: string
   WeChatPayMinTopUp: number

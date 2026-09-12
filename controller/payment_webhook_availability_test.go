@@ -175,6 +175,8 @@ func TestWeChatPayTopUpRequiresCompliance(t *testing.T) {
 	originalKey := setting.WeChatPayAPIv3KeyValue
 	originalSerial := setting.WeChatPaySerialNoValue
 	originalPEM := setting.WeChatPayPrivateKeyPEM
+	originalPlatformPEM := setting.WeChatPayPlatformCertificatePEM
+	originalPlatformSerial := setting.WeChatPayPlatformSerialNoValue
 	originalNotify := setting.WeChatPayNotifyURLValue
 	t.Cleanup(func() {
 		setting.WeChatPayEnabled = originalEnabled
@@ -183,6 +185,8 @@ func TestWeChatPayTopUpRequiresCompliance(t *testing.T) {
 		setting.WeChatPayAPIv3KeyValue = originalKey
 		setting.WeChatPaySerialNoValue = originalSerial
 		setting.WeChatPayPrivateKeyPEM = originalPEM
+		setting.WeChatPayPlatformCertificatePEM = originalPlatformPEM
+		setting.WeChatPayPlatformSerialNoValue = originalPlatformSerial
 		setting.WeChatPayNotifyURLValue = originalNotify
 	})
 
@@ -192,6 +196,8 @@ func TestWeChatPayTopUpRequiresCompliance(t *testing.T) {
 	setting.WeChatPayAPIv3KeyValue = "1234567890abcdef1234567890abcdef"
 	setting.WeChatPaySerialNoValue = "ABC"
 	setting.WeChatPayPrivateKeyPEM = "-----BEGIN PRIVATE KEY-----\ndummy\n-----END PRIVATE KEY-----"
+	setting.WeChatPayPlatformCertificatePEM = "-----BEGIN CERTIFICATE-----\ndummy\n-----END CERTIFICATE-----"
+	setting.WeChatPayPlatformSerialNoValue = "PLATFORM-ABC"
 	setting.WeChatPayNotifyURLValue = "https://example.com/api/user/wechat/notify"
 	require.True(t, setting.IsWeChatPayEnabled())
 	require.False(t, isWeChatPayTopUpEnabled())

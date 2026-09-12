@@ -33,6 +33,8 @@ export interface WeChatPaySettingsValues {
   WeChatPaySerialNo: string
   WeChatPayPrivateKey: string
   WeChatPayPrivateKeyPath: string
+  WeChatPayPlatformCertificate: string
+  WeChatPayPlatformSerialNo: string
   WeChatPayNotifyURL: string
   WeChatPayRefundNotifyURL: string
   WeChatPayMinTopUp: number
@@ -179,6 +181,33 @@ export function WeChatPaySettingsSection({ values, onValueChange }: Props) {
           {t(
             'Used only when the PEM field is empty. Mount the merchant certificate into the container if you use a file path.'
           )}
+        </p>
+      </div>
+
+      <div className='grid gap-1.5'>
+        <Label>{t('WeChat platform certificate PEM')}</Label>
+        <Textarea
+          rows={6}
+          value={values.WeChatPayPlatformCertificate}
+          onChange={(event) =>
+            onValueChange('WeChatPayPlatformCertificate', event.target.value)
+          }
+          placeholder={t('Paste the WeChat Pay platform certificate PEM used to verify callbacks and API responses.')}
+          autoComplete='off'
+        />
+      </div>
+
+      <div className='grid gap-1.5 sm:max-w-xl'>
+        <Label>{t('WeChat platform certificate serial number')}</Label>
+        <Input
+          value={values.WeChatPayPlatformSerialNo}
+          onChange={(event) =>
+            onValueChange('WeChatPayPlatformSerialNo', event.target.value)
+          }
+          autoComplete='off'
+        />
+        <p className='text-muted-foreground text-xs'>
+          {t('The platform certificate serial number must match the certificate above. Rotate both values together before the old platform certificate expires.')}
         </p>
       </div>
 
