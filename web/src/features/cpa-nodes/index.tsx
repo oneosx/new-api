@@ -1,0 +1,568 @@
+import React, { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import {
+  Server,
+  Activity,
+  Zap,
+  Plus,
+  RefreshCw,
+  Edit2,
+  Trash2,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Layers,
+  Search,
+  ExternalLink,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { toast } from 'sonner'
+import { formatQuotaWithCurrency } from '@/lib/currency'
+import {
+  fetchCpaNodes,
+  deleteCpaNode,
+  probeCpaNode,
+  createCpaNode,
+  updateCpaNode,
+  syncCpaModels,
+} from './api'
+import { CpaNodeItem } from './types'
+
+export function CpaNodes() {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [search, setSearch] = useState('')
+  const [selectedNodeForEdit, setSelectedNodeForEdit] = useState<CpaNodeItem | null>(null)
+  const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false)
+  const [selectedNodeForDelete, setSelectedNodeForDelete] = useState<CpaNodeItem | null>(null)
+  const [selectedNodeForSync, setSelectedNodeForSync] = useState<CpaNodeItem | null>(null)
+  const [syncMode, setSyncMode] = useState<'merge' | 'replace'>('merge')
+  const [confirmReplace, setConfirmReplace] = useState(false)
+
+  // Edit / Create Form State
+  const [formName, setFormName] = useState('')
+  const [formBaseUrl, setFormBaseUrl] = useState('')
+  const [formApiKey, setFormApiKey] = useState('')
+  const [formStatus, setFormStatus] = useState(1)
+  const [formWeight, setFormWeight] = useState(0)
+  const [formDesc, setFormDesc] = useState('')
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['cpa-nodes'],
+    queryFn: () => fetchCpaNodes('today', false),
+  })
+
+  const probeMutation = useMutation({
+    mutationFn: (id: number) => probeCpaNode(id),
+    onSuccess: () => {
+      toast.success(t('Probe completed'))
+      queryClient.invalidateQueries({ queryKey: ['cpa-nodes'] })
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || t('Probe failed'))
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => deleteCpaNode(id),
+    onSuccess: () => {
+      toast.success(t('Deleted successfully'))
+      queryClient.invalidateQueries({ queryKey: ['cpa-nodes'] })
+      setSelectedNodeForDelete(null)
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || t('Delete failed'))
+    },
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (selectedNodeForEdit?.id) {
+        return updateCpaNode(selectedNodeForEdit.id, {
+          name: formName,
+          base_url: formBaseUrl,
+          api_key: formApiKey || undefined,
+          status: formStatus,
+          weight: formWeight,
+          description: formDesc,
+        })
+      } else {
+        return createCpaNode({
+          name: formName,
+          base_url: formBaseUrl,
+          api_key: formApiKey,
+          status: formStatus,
+          weight: formWeight,
+          description: formDesc,
+        })
+      }
+    },
+    onSuccess: () => {
+      toast.success(t('Saved successfully'))
+      queryClient.invalidateQueries({ queryKey: ['cpa-nodes'] })
+      setIsEditDrawerOpen(false)
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || t('Save failed'))
+    },
+  })
+
+  const syncMutation = useMutation({
+    mutationFn: async (node: CpaNodeItem) => {
+      const channelIds = (node.channels || []).map((c) => c.id)
+      return syncCpaModels(node.id, {
+        channel_ids: channelIds,
+        mode: syncMode,
+        apply: true,
+        confirm_replace: syncMode === 'replace' ? confirmReplace : false,
+      })
+    },
+    onSuccess: (res) => {
+      const appliedCount = res.filter((r) => r.applied).length
+      toast.success(t('Synchronized {{count}} channels successfully', { count: appliedCount }))
+      queryClient.invalidateQueries({ queryKey: ['cpa-nodes'] })
+      setSelectedNodeForSync(null)
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || t('Sync failed'))
+    },
+  })
+
+  const openCreateModal = () => {
+    setSelectedNodeForEdit(null)
+    setFormName('')
+    setFormBaseUrl('')
+    setFormApiKey('')
+    setFormStatus(1)
+    setFormWeight(0)
+    setFormDesc('')
+    setIsEditDrawerOpen(true)
+  }
+
+  const openEditModal = (node: CpaNodeItem) => {
+    setSelectedNodeForEdit(node)
+    setFormName(node.name)
+    setFormBaseUrl(node.base_url)
+    setFormApiKey('')
+    setFormStatus(node.status)
+    setFormWeight(node.weight)
+    setFormDesc(node.description || '')
+    setIsEditDrawerOpen(true)
+  }
+
+  const items = (data?.items || []).filter(
+    (item) =>
+      item.name.toLowerCase().includes(search.toLowerCase()) ||
+      item.base_url.toLowerCase().includes(search.toLowerCase()) ||
+      (item.description && item.description.toLowerCase().includes(search.toLowerCase()))
+  )
+
+  const summary = data?.summary || { total: 0, online: 0, total_requests: 0, total_quota: 0 }
+
+  return (
+    <div className="space-y-6">
+      {/* Header & KPI */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{t('CPA Nodes')}</h1>
+          <p className="text-sm text-muted-foreground">
+            {t('Manage and monitor CLI Proxy API instances across servers')}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            {t('Refresh')}
+          </Button>
+          <Button size="sm" onClick={openCreateModal}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('Add CPA Node')}
+          </Button>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="rounded-lg bg-primary/10 p-2 text-primary">
+              <Server className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">{t('Total Nodes')}</p>
+              <p className="text-xl font-bold">{summary.total}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-500">
+              <Activity className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">{t('Online Nodes')}</p>
+              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                {summary.online} / {summary.total}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="rounded-lg bg-blue-500/10 p-2 text-blue-500">
+              <Zap className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">{t('Today Requests')}</p>
+              <p className="text-xl font-bold">{summary.total_requests.toLocaleString()}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-500">
+              <Layers className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">{t('Today Consumption')}</p>
+              <p className="text-xl font-bold">{formatQuotaWithCurrency(summary.total_quota)}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search Filter */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t('Search nodes...')}
+            className="pl-8"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Node Cards List */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {items.map((node) => {
+          const isOnline = node.is_online
+          const usage = node.usage
+          return (
+            <Card key={node.id} className="relative overflow-hidden border">
+              <div
+                className={`h-1.5 w-full ${
+                  node.status === 2
+                    ? 'bg-muted'
+                    : isOnline
+                    ? 'bg-emerald-500'
+                    : 'bg-destructive'
+                }`}
+              />
+              <CardContent className="p-5 space-y-4">
+                {/* Node Title & Status */}
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-base">{node.name}</span>
+                      {node.status === 2 && (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          {t('Disabled')}
+                        </Badge>
+                      )}
+                      {node.version && (
+                        <Badge variant="secondary" className="text-xs">
+                          {node.version}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                      <span className="truncate max-w-[200px]" title={node.base_url}>
+                        {node.base_url}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {isOnline ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {node.latency}ms
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                        <XCircle className="h-3 w-3" />
+                        {t('Offline')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {node.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-1">{node.description}</p>
+                )}
+
+                {/* Metrics */}
+                <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-3 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">{t('Today Requests')}:</span>{' '}
+                    <span className="font-semibold">{(usage?.requests || 0).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{t('Quota')}:</span>{' '}
+                    <span className="font-semibold">
+                      {formatQuotaWithCurrency(usage?.quota || 0)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{t('Models')}:</span>{' '}
+                    <span className="font-semibold">{node.model_count || 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{t('Channels')}:</span>{' '}
+                    <span className="font-semibold">{node.channel_count || 0}</span>
+                  </div>
+                </div>
+
+                {node.last_error && !isOnline && (
+                  <p className="text-xs text-destructive truncate" title={node.last_error}>
+                    {node.last_error}
+                  </p>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-2 border-t text-xs">
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span>
+                      {node.last_check_at
+                        ? new Date(node.last_check_at * 1000).toLocaleTimeString()
+                        : t('Never')}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title={t('Test')}
+                      onClick={() => probeMutation.mutate(node.id)}
+                      disabled={probeMutation.isPending}
+                    >
+                      <Zap className="h-3.5 w-3.5" />
+                    </Button>
+                    {(node.channel_count || 0) > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title={t('Sync models to channels')}
+                        onClick={() => {
+                          setSelectedNodeForSync(node)
+                          setSyncMode('merge')
+                          setConfirmReplace(false)
+                        }}
+                      >
+                        <RefreshCw className="h-3.5 w-3.5 text-blue-500" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      title={t('Edit')}
+                      onClick={() => openEditModal(node)}
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      title={t('Delete')}
+                      onClick={() => setSelectedNodeForDelete(node)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {items.length === 0 && !isLoading && (
+        <div className="text-center py-12 border rounded-lg border-dashed">
+          <Server className="mx-auto h-8 w-8 text-muted-foreground opacity-50" />
+          <p className="mt-2 text-sm text-muted-foreground">{t('No CPA nodes found')}</p>
+          <Button size="sm" className="mt-4" onClick={openCreateModal}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t('Add your first node')}
+          </Button>
+        </div>
+      )}
+
+      {/* Delete Dialog */}
+      <ConfirmDialog
+        open={!!selectedNodeForDelete}
+        onOpenChange={(open) => !open && setSelectedNodeForDelete(null)}
+        title={t('Delete CPA Node')}
+        description={t(
+          'Are you sure you want to delete this CPA node? Associated channels will not be deleted.'
+        )}
+        onConfirm={() => selectedNodeForDelete && deleteMutation.mutate(selectedNodeForDelete.id)}
+        loading={deleteMutation.isPending}
+      />
+
+      {/* Sync Models Dialog */}
+      {selectedNodeForSync && (
+        <ConfirmDialog
+          open={!!selectedNodeForSync}
+          onOpenChange={(open) => !open && setSelectedNodeForSync(null)}
+          title={t('Sync Models to Channels')}
+          description={
+            <div className="space-y-4 py-2">
+              <p>
+                {t('Sync models detected from {{name}} ({{count}} models) to {{chCount}} channels.', {
+                  name: selectedNodeForSync.name,
+                  count: selectedNodeForSync.model_count,
+                  chCount: selectedNodeForSync.channel_count,
+                })}
+              </p>
+              <div className="space-y-2">
+                <label className="text-xs font-medium">{t('Sync Mode')}</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input
+                      type="radio"
+                      name="syncMode"
+                      value="merge"
+                      checked={syncMode === 'merge'}
+                      onChange={() => setSyncMode('merge')}
+                    />
+                    <span>{t('Merge (Union)')}</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input
+                      type="radio"
+                      name="syncMode"
+                      value="replace"
+                      checked={syncMode === 'replace'}
+                      onChange={() => setSyncMode('replace')}
+                    />
+                    <span className="text-destructive font-medium">{t('Replace (Overwrite)')}</span>
+                  </label>
+                </div>
+              </div>
+              {syncMode === 'replace' && (
+                <label className="flex items-center gap-2 text-xs text-destructive border border-destructive/20 p-2 rounded bg-destructive/5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={confirmReplace}
+                    onChange={(e) => setConfirmReplace(e.target.checked)}
+                  />
+                  <span>{t('I confirm that existing channel models will be fully replaced')}</span>
+                </label>
+              )}
+            </div>
+          }
+          onConfirm={() => selectedNodeForSync && syncMutation.mutate(selectedNodeForSync)}
+          loading={syncMutation.isPending}
+        />
+      )}
+
+      {/* Edit / Create Dialog */}
+      {isEditDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-lg border space-y-4">
+            <h2 className="text-lg font-bold">
+              {selectedNodeForEdit ? t('Edit CPA Node') : t('Add CPA Node')}
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium">{t('Node Name')}</label>
+                <Input
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder={t('e.g. US-App')}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium">{t('Base URL')}</label>
+                <Input
+                  value={formBaseUrl}
+                  onChange={(e) => setFormBaseUrl(e.target.value)}
+                  placeholder="https://cpa-us-app.oneosx.com"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium">
+                  {t('API Key')}
+                  {selectedNodeForEdit && (
+                    <span className="ml-1 text-muted-foreground font-normal">
+                      ({t('Leave empty to keep unchanged')})
+                    </span>
+                  )}
+                </label>
+                <Input
+                  type="password"
+                  value={formApiKey}
+                  onChange={(e) => setFormApiKey(e.target.value)}
+                  placeholder="Bearer token"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium">{t('Description')}</label>
+                <Input
+                  value={formDesc}
+                  onChange={(e) => setFormDesc(e.target.value)}
+                  placeholder={t('e.g. Antigravity OAuth')}
+                  className="mt-1"
+                />
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formStatus === 1}
+                    onChange={(e) => setFormStatus(e.target.checked ? 1 : 2)}
+                  />
+                  <span>{t('Enabled')}</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditDrawerOpen(false)}
+                disabled={saveMutation.isPending}
+              >
+                {t('Cancel')}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending || !formName || !formBaseUrl}
+              >
+                {t('Save')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

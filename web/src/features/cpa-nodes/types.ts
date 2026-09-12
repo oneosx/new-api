@@ -1,0 +1,64 @@
+export interface CpaNodeChannelInfo {
+  id: number
+  name: string
+  type: number
+  status: number
+  model_count: number
+  models: string[]
+}
+
+export interface CpaNodeUsage {
+  window: string
+  requests: number
+  prompt_tokens: number
+  completion_tokens: number
+  quota: number
+  error_count: number
+  error_rate: number
+}
+
+export interface CpaNodeItem {
+  id: number
+  name: string
+  base_url: string
+  normalized_url: string
+  has_api_key: boolean
+  status: number // 1: enabled, 2: disabled
+  weight: number
+  description: string
+  created_time: number
+  updated_time: number
+  is_online: boolean
+  latency: number
+  http_status: number
+  version: string
+  model_count: number
+  models: string
+  last_error: string
+  last_check_at: number
+  channel_count: number
+  channels?: CpaNodeChannelInfo[]
+  usage?: CpaNodeUsage
+}
+
+export interface CpaNodesResponse {
+  items: CpaNodeItem[]
+  summary: {
+    total: number
+    online: number
+    total_requests: number
+    total_quota: number
+  }
+}
+
+export interface CpaSyncDiffResult {
+  channel_id: number
+  channel_name: string
+  original: string[]
+  target: string[]
+  added: string[]
+  removed: string[]
+  kept: string[]
+  applied: boolean
+  error_message?: string
+}
