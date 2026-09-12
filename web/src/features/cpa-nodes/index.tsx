@@ -469,22 +469,6 @@ export function CpaNodes() {
                     <Zap className="h-3.5 w-3.5 text-amber-500" />
                     {t('Test')}
                   </Button>
-                  {(node.channel_count || 0) > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1"
-                      title={t('Sync models to channels')}
-                      onClick={() => {
-                        setSelectedNodeForSync(node)
-                        setSyncMode('merge')
-                        setConfirmReplace(false)
-                      }}
-                    >
-                      <RefreshCw className="h-3.5 w-3.5 text-blue-500" />
-                      {t('Sync')}
-                    </Button>
-                  )}
                   <Button
                     variant="ghost"
                     size="icon"
