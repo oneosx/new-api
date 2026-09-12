@@ -148,7 +148,7 @@ export function Pricing() {
   if (isLoading) {
     return (
       <PublicLayout showMainContainer={false}>
-        <div className='mx-auto w-full max-w-7xl px-2 pb-2 pt-16 pb-8'>
+        <div className='mx-auto w-full max-w-7xl px-4 pb-2 pt-16 pb-8'>
           <LoadingSkeleton viewMode={viewMode} />
         </div>
       </PublicLayout>
@@ -162,7 +162,7 @@ export function Pricing() {
           aria-hidden
           className='pointer-events-none absolute inset-x-0 top-0 h-[600px] opacity-20 dark:opacity-[0.10]'
         />
-        <PageTransition className='relative mx-auto w-full max-w-7xl pt-16 pb-2 px-2'>
+        <PageTransition className='relative mx-auto w-full max-w-7xl pt-16 pb-2 px-4'>
           <div className='grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]'>
             <PricingSidebar
               quotaTypeFilter={quotaTypeFilter}

@@ -24,7 +24,7 @@ export function EfficiencyCtaSection() {
   const { t } = useTranslation()
 
   return (
-    <section className='w-full max-w-7xl mx-auto my-16 p-2'>
+    <section className='w-full max-w-7xl mx-auto my-16 p-4'>
       <div className='relative overflow-hidden rounded border border-border/60 bg-card/60 px-6 py-10 sm:px-12 sm:py-14 text-center md:text-left flex flex-col md:flex-row md:items-center md:justify-between gap-8 backdrop-blur-xs'>
         {/* Subtle decorative background glow */}
         <div

@@ -330,6 +330,16 @@ export type BillingSettings = {
   WaffoPancakeMerchantID: string
   WaffoPancakePrivateKey: string
   WaffoPancakeReturnURL: string
+  WeChatPayEnabled: boolean
+  WeChatPayAppID: string
+  WeChatPayMchID: string
+  WeChatPayAPIv3Key: string
+  WeChatPaySerialNo: string
+  WeChatPayPrivateKey: string
+  WeChatPayPrivateKeyPath: string
+  WeChatPayNotifyURL: string
+  WeChatPayRefundNotifyURL: string
+  WeChatPayMinTopUp: number
   // Bound by the operator through the catalog flow in the admin Pancake
   // section (saved via /api/option/waffo-pancake/save).
   WaffoPancakeStoreID: string

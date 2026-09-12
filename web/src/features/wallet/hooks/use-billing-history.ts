@@ -27,8 +27,10 @@ import {
   getUserBillingHistory,
   getAllBillingHistory,
   completeOrder,
+  refundWeChatOrder,
   isApiSuccess,
 } from '../api'
+import { PAYMENT_TYPES } from '../constants'
 import type { TopupRecord } from '../types'
 
 // ============================================================================
@@ -55,6 +57,7 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
   const requestIdRef = useRef(0)
   const [loading, setLoading] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const [refunding, setRefunding] = useState(false)
 
   /**
    * Fetch billing history
@@ -106,6 +109,15 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
 
       setCompleting(true)
       try {
+        const record = records.find((item) => item.trade_no === tradeNo)
+        if (record?.payment_method === PAYMENT_TYPES.WECHAT_JSAPI) {
+          toast.error(
+            i18next.t(
+              'Official WeChat Pay orders cannot be completed manually. Use refund after payment succeeds, or wait for the payment callback.'
+            )
+          )
+          return false
+        }
         const response = await completeOrder({ trade_no: tradeNo })
         if (isApiSuccess(response)) {
           toast.success(i18next.t('Order completed successfully'))
@@ -123,6 +135,42 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
         return false
       } finally {
         setCompleting(false)
+      }
+    },
+    [isAdmin, fetchBillingHistory, records]
+  )
+
+  const handleRefundWeChatOrder = useCallback(
+    async (tradeNo: string) => {
+      if (!isAdmin) {
+        toast.error(i18next.t('Admin access required'))
+        return false
+      }
+
+      setRefunding(true)
+      try {
+        const response = await refundWeChatOrder({ trade_no: tradeNo })
+        if (isApiSuccess(response)) {
+          toast.success(
+            response.message ||
+              i18next.t(
+                'WeChat refund submitted. Quota is held until WeChat confirms.'
+              )
+          )
+          await fetchBillingHistory()
+          return true
+        }
+        toast.error(
+          response.message || i18next.t('Failed to refund WeChat order')
+        )
+        return false
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to refund WeChat order:', error)
+        toast.error(i18next.t('Failed to refund WeChat order'))
+        return false
+      } finally {
+        setRefunding(false)
       }
     },
     [isAdmin, fetchBillingHistory]
@@ -167,11 +215,13 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     keyword,
     loading,
     completing,
+    refunding,
     isAdmin,
     handlePageChange,
     handlePageSizeChange,
     handleSearch,
     handleCompleteOrder,
+    handleRefundWeChatOrder,
     refresh: fetchBillingHistory,
   }
 }

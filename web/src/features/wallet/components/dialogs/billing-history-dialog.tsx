@@ -48,6 +48,7 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { formatCurrencyFromUSD } from '@/lib/currency'
 import { formatNumber } from '@/lib/format'
 
+import { PAYMENT_TYPES } from '../../constants'
 import { useBillingHistory } from '../../hooks/use-billing-history'
 import {
   getStatusConfig,
@@ -78,9 +79,12 @@ export function BillingHistoryDialog({
     handlePageSizeChange,
     handleSearch,
     handleCompleteOrder,
+    handleRefundWeChatOrder,
+    refunding,
   } = useBillingHistory()
 
   const [confirmTradeNo, setConfirmTradeNo] = useState<string | null>(null)
+  const [refundTradeNo, setRefundTradeNo] = useState<string | null>(null)
   const { copyToClipboard, copiedText } = useCopyToClipboard({ notify: false })
 
   const totalPages = Math.ceil(total / pageSize)
@@ -90,6 +94,15 @@ export function BillingHistoryDialog({
       const success = await handleCompleteOrder(confirmTradeNo)
       if (success) {
         setConfirmTradeNo(null)
+      }
+    }
+  }
+
+  const handleConfirmRefund = async () => {
+    if (refundTradeNo) {
+      const success = await handleRefundWeChatOrder(refundTradeNo)
+      if (success) {
+        setRefundTradeNo(null)
       }
     }
   }
@@ -259,18 +272,36 @@ export function BillingHistoryDialog({
                       </div>
 
                       {/* Admin Actions */}
-                      {isAdmin && record.status === 'pending' && (
-                        <div className='mt-4 flex justify-end'>
-                          <Button
-                            size='sm'
-                            variant='outline'
-                            onClick={() => setConfirmTradeNo(record.trade_no)}
-                            disabled={completing}
-                          >
-                            {t('Complete Order')}
-                          </Button>
-                        </div>
-                      )}
+                      {isAdmin &&
+                        record.status === 'pending' &&
+                        record.payment_method !==
+                          PAYMENT_TYPES.WECHAT_JSAPI && (
+                          <div className='mt-4 flex justify-end'>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              onClick={() => setConfirmTradeNo(record.trade_no)}
+                              disabled={completing}
+                            >
+                              {t('Complete Order')}
+                            </Button>
+                          </div>
+                        )}
+                      {isAdmin &&
+                        record.status === 'success' &&
+                        record.payment_method ===
+                          PAYMENT_TYPES.WECHAT_JSAPI && (
+                          <div className='mt-4 flex justify-end'>
+                            <Button
+                              size='sm'
+                              variant='outline'
+                              onClick={() => setRefundTradeNo(record.trade_no)}
+                              disabled={refunding}
+                            >
+                              {t('Refund WeChat order')}
+                            </Button>
+                          </div>
+                        )}
                     </div>
                   )
                 })}
@@ -314,6 +345,34 @@ export function BillingHistoryDialog({
           )}
         </div>
       </Dialog>
+
+      {/* Confirm WeChat refund Dialog */}
+      <AlertDialog
+        open={!!refundTradeNo}
+        onOpenChange={(open) => !open && setRefundTradeNo(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('Refund WeChat order')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                'This will hold the unused quota and request a full original-route refund from WeChat. Partial refunds are not supported.'
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={refunding}>
+              {t('Cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRefund}
+              disabled={refunding}
+            >
+              {refunding ? t('Processing...') : t('Confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirm Complete Order Dialog */}
       <AlertDialog

@@ -46,6 +46,18 @@ export const STATUS_CONFIG: Record<TopupStatus, StatusConfig> = {
     variant: 'danger',
     label: 'Expired',
   },
+  failed: {
+    variant: 'danger',
+    label: 'Failed',
+  },
+  refunding: {
+    variant: 'warning',
+    label: 'Refunding',
+  },
+  refunded: {
+    variant: 'neutral',
+    label: 'Refunded',
+  },
 }
 
 /**
@@ -62,6 +74,7 @@ export const PAYMENT_METHOD_NAMES: Record<string, string> = {
   stripe: 'Stripe',
   alipay: 'Alipay',
   wxpay: 'WeChat Pay',
+  wechat_jsapi: 'WeChat Pay',
   waffo: 'Waffo',
 }
 

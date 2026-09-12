@@ -93,18 +93,17 @@ export function Home() {
       <main className='flex flex-1 flex-col items-center w-full'>
         <CodingAgentHero />
         {/* Subtle gradient divider between Hero and Integration */}
-        <div className='w-full max-w-7xl px-2'>
+        <div className='w-full max-w-7xl px-4'>
           <div className='h-px w-full bg-gradient-to-r from-transparent via-border/80 to-transparent' />
         </div>
         <IntegrationSection />
-
         {/* Admin-configured custom home content (Markdown/HTML) rendered right below Integration */}
         {content && (
           <>
-            <div className='w-full max-w-7xl px-2'>
+            <div className='w-full max-w-7xl px-4'>
               <div className='h-px w-full bg-gradient-to-r from-transparent via-border/80 to-transparent' />
             </div>
-            <section className='w-full max-w-7xl p-2 my-16'>
+            <section className='w-full max-w-7xl p-4 my-16'>
               <div className='rounded border border-border/50 bg-card/60 p-6 sm:p-8 backdrop-blur-xs'>
                 <RichContent
                   mode={contentIsHtml ? 'html' : 'markdown'}
@@ -118,7 +117,7 @@ export function Home() {
         )}
 
         {/* Subtle gradient divider before Efficiency Section */}
-        <div className='w-full max-w-7xl px-2'>
+        <div className='w-full max-w-7xl px-4'>
           <div className='h-px w-full bg-gradient-to-r from-transparent via-border/80 to-transparent' />
         </div>
         <EfficiencyCtaSection />

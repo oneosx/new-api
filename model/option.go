@@ -124,6 +124,16 @@ func InitOptionMap() {
 	common.OptionMap["WaffoPancakeMinTopUp"] = strconv.Itoa(setting.WaffoPancakeMinTopUp)
 	common.OptionMap["WaffoPancakeStoreID"] = setting.WaffoPancakeStoreID
 	common.OptionMap["WaffoPancakeProductID"] = setting.WaffoPancakeProductID
+	common.OptionMap["WeChatPayEnabled"] = strconv.FormatBool(setting.WeChatPayEnabled)
+	common.OptionMap["WeChatPayAppID"] = setting.WeChatPayAppIDValue
+	common.OptionMap["WeChatPayMchID"] = setting.WeChatPayMchIDValue
+	common.OptionMap["WeChatPayAPIv3Key"] = setting.WeChatPayAPIv3KeyValue
+	common.OptionMap["WeChatPaySerialNo"] = setting.WeChatPaySerialNoValue
+	common.OptionMap["WeChatPayPrivateKey"] = setting.WeChatPayPrivateKeyPEM
+	common.OptionMap["WeChatPayPrivateKeyPath"] = setting.WeChatPayPrivateKeyFile
+	common.OptionMap["WeChatPayNotifyURL"] = setting.WeChatPayNotifyURLValue
+	common.OptionMap["WeChatPayRefundNotifyURL"] = setting.WeChatPayRefundNotifyURLValue
+	common.OptionMap["WeChatPayMinTopUp"] = strconv.FormatInt(setting.WeChatPayMinTopUpValue, 10)
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
@@ -517,6 +527,39 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.WaffoPancakeUnitPrice, _ = strconv.ParseFloat(value, 64)
 	case "WaffoPancakeMinTopUp":
 		setting.WaffoPancakeMinTopUp, _ = strconv.Atoi(value)
+	case "WeChatPayEnabled":
+		setting.WeChatPayEnabled = value == "true"
+		setting.BumpWeChatPayConfig()
+	case "WeChatPayAppID":
+		setting.WeChatPayAppIDValue = value
+		setting.BumpWeChatPayConfig()
+	case "WeChatPayMchID":
+		setting.WeChatPayMchIDValue = value
+		setting.BumpWeChatPayConfig()
+	case "WeChatPayAPIv3Key":
+		setting.WeChatPayAPIv3KeyValue = value
+		setting.BumpWeChatPayConfig()
+	case "WeChatPaySerialNo":
+		setting.WeChatPaySerialNoValue = value
+		setting.BumpWeChatPayConfig()
+	case "WeChatPayPrivateKey":
+		setting.WeChatPayPrivateKeyPEM = value
+		setting.BumpWeChatPayConfig()
+	case "WeChatPayPrivateKeyPath":
+		setting.WeChatPayPrivateKeyFile = value
+		setting.BumpWeChatPayConfig()
+	case "WeChatPayNotifyURL":
+		setting.WeChatPayNotifyURLValue = value
+		setting.BumpWeChatPayConfig()
+	case "WeChatPayRefundNotifyURL":
+		setting.WeChatPayRefundNotifyURLValue = value
+		setting.BumpWeChatPayConfig()
+	case "WeChatPayMinTopUp":
+		minTopUp, _ := strconv.ParseInt(value, 10, 64)
+		if minTopUp < 1 {
+			minTopUp = 1
+		}
+		setting.WeChatPayMinTopUpValue = minTopUp
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":

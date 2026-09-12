@@ -25,6 +25,7 @@ import {
   calculateStripeAmount,
   calculateWaffoAmount,
   calculateWaffoPancakeAmount,
+  calculateWeChatAmount,
   requestPayment,
   requestStripePayment,
   isApiSuccess,
@@ -33,6 +34,7 @@ import {
   isStripePayment,
   isWaffoPayment,
   isWaffoPancakePayment,
+  isWeChatJSAPIPayment,
   submitPaymentForm,
 } from '../lib'
 import type { AmountRequest, AmountResponse } from '../types'
@@ -48,6 +50,7 @@ export interface PaymentAmountCalculators {
   stripe: AmountCalculator
   waffo: AmountCalculator
   waffoPancake: AmountCalculator
+  wechat?: AmountCalculator
 }
 
 const defaultPaymentAmountCalculators: PaymentAmountCalculators = {
@@ -55,6 +58,7 @@ const defaultPaymentAmountCalculators: PaymentAmountCalculators = {
   stripe: calculateStripeAmount,
   waffo: calculateWaffoAmount,
   waffoPancake: calculateWaffoPancakeAmount,
+  wechat: calculateWeChatAmount,
 }
 
 export async function requestPaymentAmount(
@@ -69,6 +73,8 @@ export async function requestPaymentAmount(
     calculator = calculators.waffo
   } else if (isWaffoPancakePayment(paymentType)) {
     calculator = calculators.waffoPancake
+  } else if (isWeChatJSAPIPayment(paymentType)) {
+    calculator = calculators.wechat || calculateWeChatAmount
   }
 
   const response = await calculator({ amount: topupAmount })
@@ -110,6 +116,11 @@ export function usePayment() {
     async (topupAmount: number, paymentType: string) => {
       try {
         setProcessing(true)
+
+        if (isWeChatJSAPIPayment(paymentType)) {
+          toast.error(i18next.t('Payment request failed'))
+          return false
+        }
 
         const isStripe = isStripePayment(paymentType)
         const amount = Math.floor(topupAmount)

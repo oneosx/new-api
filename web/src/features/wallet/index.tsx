@@ -41,6 +41,7 @@ import {
   useCreemPayment,
   useWaffoPayment,
   useWaffoPancakePayment,
+  useWeChatPay,
 } from './hooks'
 import {
   getDefaultPaymentType,
@@ -108,6 +109,7 @@ export function Wallet(props: WalletProps) {
   const { processing: waffoProcessing, processWaffoPayment } = useWaffoPayment()
   const { processing: pancakeProcessing, processWaffoPancakePayment } =
     useWaffoPancakePayment()
+  const { processWeChatPay } = useWeChatPay()
 
   // Fetch and refresh user data
   const fetchUser = useCallback(async () => {
@@ -202,6 +204,7 @@ export function Wallet(props: WalletProps) {
         regular: processPayment,
         waffo: processWaffoPayment,
         waffoPancake: processWaffoPancakePayment,
+        wechatJSAPI: (amount) => processWeChatPay(amount, user),
       }
     )
 

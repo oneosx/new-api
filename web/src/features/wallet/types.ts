@@ -61,6 +61,41 @@ export type WaffoPancakePaymentResponse = ApiResponse<
 >
 
 /**
+ * WeChat Pay JSAPI prepay parameters
+ */
+export interface WeChatPayJSAPIData {
+  trade_no: string
+  app_id: string
+  timeStamp: string
+  nonceStr: string
+  package: string
+  signType: string
+  paySign: string
+}
+
+export type WeChatPayResponse = ApiResponse<WeChatPayJSAPIData>
+
+/**
+ * WeChat Pay order status
+ */
+export interface WeChatPayOrderData {
+  trade_no: string
+  status: TopupStatus
+  amount: number
+  money: number
+}
+
+export type WeChatPayOrderResponse = ApiResponse<WeChatPayOrderData>
+
+/**
+ * WeChat payment request
+ */
+export interface WeChatPayRequest {
+  amount: number
+  openid?: string
+}
+
+/**
  * Creem product configuration
  */
 export interface CreemProduct {
@@ -150,6 +185,10 @@ export interface TopupInfo {
   enable_waffo_pancake_topup?: boolean
   /** Minimum topup amount for Waffo Pancake */
   waffo_pancake_min_topup?: number
+  /** Whether official WeChat Pay topup is enabled */
+  enable_wechat_topup?: boolean
+  /** Minimum topup amount for official WeChat Pay */
+  wechat_min_topup?: number
   /** Whether redemption code usage is enabled */
   enable_redemption?: boolean
   /** Whether compliance confirmation has been completed */
@@ -242,12 +281,20 @@ export interface UserWalletData {
   aff_count: number
   /** User group */
   group: string
+  /** Bound WeChat openid, when present */
+  wechat_id?: string
 }
 
 /**
  * Topup record status
  */
-export type TopupStatus = 'success' | 'pending' | 'expired'
+export type TopupStatus =
+  | 'success'
+  | 'pending'
+  | 'failed'
+  | 'expired'
+  | 'refunding'
+  | 'refunded'
 
 /**
  * Topup billing record
@@ -286,4 +333,9 @@ export interface BillingHistoryResponse {
  */
 export interface CompleteOrderRequest {
   trade_no: string
+}
+
+export interface WeChatRefundRequest {
+  trade_no: string
+  reason?: string
 }

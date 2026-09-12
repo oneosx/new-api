@@ -167,3 +167,35 @@ func TestEpayWebhookEnabledRequiresTopUpAndWebhookConfig(t *testing.T) {
 	operation_setting.PayMethods = nil
 	require.False(t, isEpayWebhookEnabled())
 }
+
+func TestWeChatPayTopUpRequiresCompliance(t *testing.T) {
+	originalEnabled := setting.WeChatPayEnabled
+	originalAppID := setting.WeChatPayAppIDValue
+	originalMchID := setting.WeChatPayMchIDValue
+	originalKey := setting.WeChatPayAPIv3KeyValue
+	originalSerial := setting.WeChatPaySerialNoValue
+	originalPEM := setting.WeChatPayPrivateKeyPEM
+	originalNotify := setting.WeChatPayNotifyURLValue
+	t.Cleanup(func() {
+		setting.WeChatPayEnabled = originalEnabled
+		setting.WeChatPayAppIDValue = originalAppID
+		setting.WeChatPayMchIDValue = originalMchID
+		setting.WeChatPayAPIv3KeyValue = originalKey
+		setting.WeChatPaySerialNoValue = originalSerial
+		setting.WeChatPayPrivateKeyPEM = originalPEM
+		setting.WeChatPayNotifyURLValue = originalNotify
+	})
+
+	setting.WeChatPayEnabled = true
+	setting.WeChatPayAppIDValue = "wxapp"
+	setting.WeChatPayMchIDValue = "1234567890"
+	setting.WeChatPayAPIv3KeyValue = "1234567890abcdef1234567890abcdef"
+	setting.WeChatPaySerialNoValue = "ABC"
+	setting.WeChatPayPrivateKeyPEM = "-----BEGIN PRIVATE KEY-----\ndummy\n-----END PRIVATE KEY-----"
+	setting.WeChatPayNotifyURLValue = "https://example.com/api/user/wechat/notify"
+	require.True(t, setting.IsWeChatPayEnabled())
+	require.False(t, isWeChatPayTopUpEnabled())
+
+	confirmPaymentComplianceForTest(t)
+	require.True(t, isWeChatPayTopUpEnabled())
+}

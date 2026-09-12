@@ -33,12 +33,16 @@ import type {
   AffiliateTransferResponse,
   BillingHistoryResponse,
   CompleteOrderRequest,
+  WeChatRefundRequest,
   CreemPaymentRequest,
   CreemPaymentResponse,
   WaffoPaymentRequest,
   WaffoPaymentResponse,
   WaffoPancakePaymentRequest,
   WaffoPancakePaymentResponse,
+  WeChatPayRequest,
+  WeChatPayResponse,
+  WeChatPayOrderResponse,
 } from './types'
 
 // ============================================================================
@@ -101,6 +105,18 @@ export async function calculateWaffoAmount(
   request: AmountRequest
 ): Promise<AmountResponse> {
   const res = await api.post('/api/user/waffo/amount', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Calculate payment amount for WeChat Pay payment
+ */
+export async function calculateWeChatAmount(
+  request: AmountRequest
+): Promise<AmountResponse> {
+  const res = await api.post('/api/user/wechat/amount', request, {
     skipBusinessError: true,
   } as Record<string, unknown>)
   return res.data
@@ -182,6 +198,30 @@ export async function requestWaffoPancakePayment(
 }
 
 /**
+ * Request WeChat JSAPI payment
+ */
+export async function requestWeChatPay(
+  request: WeChatPayRequest
+): Promise<WeChatPayResponse> {
+  const res = await api.post('/api/user/wechat/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Get WeChat Pay order status
+ */
+export async function getWeChatPayOrder(
+  tradeNo: string
+): Promise<WeChatPayOrderResponse> {
+  const res = await api.get(
+    `/api/user/wechat/order/${encodeURIComponent(tradeNo)}`
+  )
+  return res.data
+}
+
+/**
  * Get affiliate code
  */
 export async function getAffiliateCode(): Promise<AffiliateCodeResponse> {
@@ -244,5 +284,12 @@ export async function completeOrder(
   request: CompleteOrderRequest
 ): Promise<ApiResponse> {
   const res = await api.post('/api/user/topup/complete', request)
+  return res.data
+}
+
+export async function refundWeChatOrder(
+  request: WeChatRefundRequest
+): Promise<ApiResponse> {
+  const res = await api.post('/api/user/topup/wechat/refund', request)
   return res.data
 }

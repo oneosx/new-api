@@ -106,10 +106,11 @@ export function getPaymentIcon(
         />
       )
     case PAYMENT_TYPES.WECHAT:
+    case PAYMENT_TYPES.WECHAT_JSAPI:
       return (
         <SiWechat
           className={className}
-          style={{ color: PAYMENT_ICON_COLORS[PAYMENT_TYPES.WECHAT] }}
+          style={{ color: PAYMENT_ICON_COLORS[PAYMENT_TYPES.WECHAT_JSAPI] }}
         />
       )
     case PAYMENT_TYPES.STRIPE:

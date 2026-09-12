@@ -93,10 +93,18 @@ export function isWaffoPancakePayment(paymentType: string): boolean {
   return paymentType === PAYMENT_TYPES.WAFFO_PANCAKE
 }
 
+/**
+ * Check if payment method is official WeChat Pay JSAPI
+ */
+export function isWeChatJSAPIPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.WECHAT_JSAPI
+}
+
 export interface PaymentProcessors {
   regular: (topupAmount: number, paymentType: string) => Promise<boolean>
   waffo: (topupAmount: number, payMethodIndex: number) => Promise<boolean>
   waffoPancake: (topupAmount: number) => Promise<boolean>
+  wechatJSAPI?: (topupAmount: number) => Promise<boolean>
 }
 
 export async function dispatchSelectedPayment(
@@ -105,6 +113,13 @@ export async function dispatchSelectedPayment(
   waffoMethodIndex: number | null,
   processors: PaymentProcessors
 ): Promise<boolean> {
+  if (isWeChatJSAPIPayment(paymentMethod.type)) {
+    if (processors.wechatJSAPI) {
+      return processors.wechatJSAPI(topupAmount)
+    }
+    return false
+  }
+
   if (isWaffoPayment(paymentMethod.type)) {
     if (waffoMethodIndex === null) {
       return false
@@ -144,6 +159,10 @@ export function getDefaultPaymentType(topupInfo: TopupInfo | null): string {
     return PAYMENT_TYPES.WAFFO_PANCAKE
   }
 
+  if (topupInfo.enable_wechat_topup) {
+    return PAYMENT_TYPES.WECHAT_JSAPI
+  }
+
   return DEFAULT_PAYMENT_TYPE
 }
 
@@ -169,6 +188,10 @@ export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
 
   if (topupInfo.enable_waffo_pancake_topup) {
     return topupInfo.waffo_pancake_min_topup || DEFAULT_MIN_TOPUP
+  }
+
+  if (topupInfo.enable_wechat_topup) {
+    return topupInfo.wechat_min_topup || DEFAULT_MIN_TOPUP
   }
 
   return DEFAULT_MIN_TOPUP

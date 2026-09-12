@@ -79,6 +79,10 @@ import {
   WaffoSettingsSection,
   type WaffoSettingsValues,
 } from './waffo-settings-section'
+import {
+  WeChatPaySettingsSection,
+  type WeChatPaySettingsValues,
+} from './wechat-pay-settings-section'
 
 function isHttpOriginUrl(value: string) {
   const trimmed = value.trim()
@@ -176,6 +180,16 @@ const paymentSchema = z.object({
   WaffoPancakeMerchantID: z.string(),
   WaffoPancakePrivateKey: z.string(),
   WaffoPancakeReturnURL: z.string(),
+  WeChatPayEnabled: z.boolean(),
+  WeChatPayAppID: z.string(),
+  WeChatPayMchID: z.string(),
+  WeChatPayAPIv3Key: z.string(),
+  WeChatPaySerialNo: z.string(),
+  WeChatPayPrivateKey: z.string(),
+  WeChatPayPrivateKeyPath: z.string(),
+  WeChatPayNotifyURL: z.string(),
+  WeChatPayRefundNotifyURL: z.string(),
+  WeChatPayMinTopUp: z.coerce.number().min(1),
 })
 
 type PaymentFormValues = z.infer<typeof paymentSchema>
@@ -404,6 +418,19 @@ export function PaymentSettingsSection({
     [setPaymentValue]
   )
 
+  const setWeChatPayValue = React.useCallback(
+    <K extends keyof WeChatPaySettingsValues>(
+      key: K,
+      value: WeChatPaySettingsValues[K]
+    ) => {
+      setPaymentValue(
+        key as keyof PaymentFormValues,
+        value as PaymentFormValues[keyof PaymentFormValues]
+      )
+    },
+    [setPaymentValue]
+  )
+
   React.useEffect(() => {
     const parsedDefaults = JSON.parse(defaultsSignature) as PaymentFormValues
     initialRef.current = parsedDefaults
@@ -457,6 +484,16 @@ export function PaymentSettingsSection({
       WaffoPancakeReturnURL: removeTrailingSlash(
         values.WaffoPancakeReturnURL.trim()
       ),
+      WeChatPayEnabled: values.WeChatPayEnabled,
+      WeChatPayAppID: values.WeChatPayAppID.trim(),
+      WeChatPayMchID: values.WeChatPayMchID.trim(),
+      WeChatPayAPIv3Key: values.WeChatPayAPIv3Key.trim(),
+      WeChatPaySerialNo: values.WeChatPaySerialNo.trim(),
+      WeChatPayPrivateKey: values.WeChatPayPrivateKey.trim(),
+      WeChatPayPrivateKeyPath: values.WeChatPayPrivateKeyPath.trim(),
+      WeChatPayNotifyURL: values.WeChatPayNotifyURL.trim(),
+      WeChatPayRefundNotifyURL: values.WeChatPayRefundNotifyURL.trim(),
+      WeChatPayMinTopUp: values.WeChatPayMinTopUp,
     }
 
     const initial = {
@@ -504,6 +541,18 @@ export function PaymentSettingsSection({
       WaffoPancakeReturnURL: removeTrailingSlash(
         initialRef.current.WaffoPancakeReturnURL.trim()
       ),
+      WeChatPayEnabled: initialRef.current.WeChatPayEnabled,
+      WeChatPayAppID: initialRef.current.WeChatPayAppID.trim(),
+      WeChatPayMchID: initialRef.current.WeChatPayMchID.trim(),
+      WeChatPayAPIv3Key: initialRef.current.WeChatPayAPIv3Key.trim(),
+      WeChatPaySerialNo: initialRef.current.WeChatPaySerialNo.trim(),
+      WeChatPayPrivateKey: initialRef.current.WeChatPayPrivateKey.trim(),
+      WeChatPayPrivateKeyPath:
+        initialRef.current.WeChatPayPrivateKeyPath.trim(),
+      WeChatPayNotifyURL: initialRef.current.WeChatPayNotifyURL.trim(),
+      WeChatPayRefundNotifyURL:
+        initialRef.current.WeChatPayRefundNotifyURL.trim(),
+      WeChatPayMinTopUp: initialRef.current.WeChatPayMinTopUp,
     }
 
     const updates: Array<{ key: string; value: string | number | boolean }> = []
@@ -701,6 +750,69 @@ export function PaymentSettingsSection({
       updates.push({ key: 'WaffoPayMethods', value: sanitized.WaffoPayMethods })
     }
 
+    if (sanitized.WeChatPayEnabled !== initial.WeChatPayEnabled) {
+      updates.push({
+        key: 'WeChatPayEnabled',
+        value: sanitized.WeChatPayEnabled,
+      })
+    }
+    if (sanitized.WeChatPayAppID !== initial.WeChatPayAppID) {
+      updates.push({ key: 'WeChatPayAppID', value: sanitized.WeChatPayAppID })
+    }
+    if (sanitized.WeChatPayMchID !== initial.WeChatPayMchID) {
+      updates.push({ key: 'WeChatPayMchID', value: sanitized.WeChatPayMchID })
+    }
+    if (
+      sanitized.WeChatPayAPIv3Key &&
+      sanitized.WeChatPayAPIv3Key !== initial.WeChatPayAPIv3Key
+    ) {
+      updates.push({
+        key: 'WeChatPayAPIv3Key',
+        value: sanitized.WeChatPayAPIv3Key,
+      })
+    }
+    if (sanitized.WeChatPaySerialNo !== initial.WeChatPaySerialNo) {
+      updates.push({
+        key: 'WeChatPaySerialNo',
+        value: sanitized.WeChatPaySerialNo,
+      })
+    }
+    if (
+      sanitized.WeChatPayPrivateKey &&
+      sanitized.WeChatPayPrivateKey !== initial.WeChatPayPrivateKey
+    ) {
+      updates.push({
+        key: 'WeChatPayPrivateKey',
+        value: sanitized.WeChatPayPrivateKey,
+      })
+    }
+    if (sanitized.WeChatPayPrivateKeyPath !== initial.WeChatPayPrivateKeyPath) {
+      updates.push({
+        key: 'WeChatPayPrivateKeyPath',
+        value: sanitized.WeChatPayPrivateKeyPath,
+      })
+    }
+    if (sanitized.WeChatPayNotifyURL !== initial.WeChatPayNotifyURL) {
+      updates.push({
+        key: 'WeChatPayNotifyURL',
+        value: sanitized.WeChatPayNotifyURL,
+      })
+    }
+    if (
+      sanitized.WeChatPayRefundNotifyURL !== initial.WeChatPayRefundNotifyURL
+    ) {
+      updates.push({
+        key: 'WeChatPayRefundNotifyURL',
+        value: sanitized.WeChatPayRefundNotifyURL,
+      })
+    }
+    if (sanitized.WeChatPayMinTopUp !== initial.WeChatPayMinTopUp) {
+      updates.push({
+        key: 'WeChatPayMinTopUp',
+        value: sanitized.WeChatPayMinTopUp,
+      })
+    }
+
     const hasWaffoPancakeChanges =
       sanitized.WaffoPancakeMerchantID !== initial.WaffoPancakeMerchantID ||
       sanitized.WaffoPancakePrivateKey.length > 0 ||
@@ -795,6 +907,18 @@ export function PaymentSettingsSection({
     WaffoPancakePrivateKey: currentFormValues.WaffoPancakePrivateKey,
     WaffoPancakeReturnURL: currentFormValues.WaffoPancakeReturnURL,
   }
+  const wechatPayValues: WeChatPaySettingsValues = {
+    WeChatPayEnabled: currentFormValues.WeChatPayEnabled,
+    WeChatPayAppID: currentFormValues.WeChatPayAppID,
+    WeChatPayMchID: currentFormValues.WeChatPayMchID,
+    WeChatPayAPIv3Key: currentFormValues.WeChatPayAPIv3Key,
+    WeChatPaySerialNo: currentFormValues.WeChatPaySerialNo,
+    WeChatPayPrivateKey: currentFormValues.WeChatPayPrivateKey,
+    WeChatPayPrivateKeyPath: currentFormValues.WeChatPayPrivateKeyPath,
+    WeChatPayNotifyURL: currentFormValues.WeChatPayNotifyURL,
+    WeChatPayRefundNotifyURL: currentFormValues.WeChatPayRefundNotifyURL,
+    WeChatPayMinTopUp: currentFormValues.WeChatPayMinTopUp,
+  }
 
   return (
     <SettingsSection title={t('Payment Gateway')}>
@@ -877,11 +1001,12 @@ export function PaymentSettingsSection({
           />
           <Tabs defaultValue='general' className='min-w-0'>
             <div className='overflow-x-auto pb-1'>
-              <TabsList className='grid min-w-[44rem] grid-cols-6'>
+              <TabsList className='grid min-w-[52rem] grid-cols-7'>
                 <TabsTrigger value='general'>{t('General')}</TabsTrigger>
                 <TabsTrigger value='epay'>Epay</TabsTrigger>
                 <TabsTrigger value='stripe'>{t('Stripe')}</TabsTrigger>
                 <TabsTrigger value='creem'>Creem</TabsTrigger>
+                <TabsTrigger value='wechat'>{t('WeChat Pay')}</TabsTrigger>
                 <TabsTrigger value='waffo-pancake'>Waffo Pancake</TabsTrigger>
                 <TabsTrigger value='waffo'>Waffo</TabsTrigger>
               </TabsList>
@@ -1602,6 +1727,13 @@ export function PaymentSettingsSection({
                   )}
                 />
               </div>
+            </TabsContent>
+
+            <TabsContent value='wechat' className={paymentTabContentClassName}>
+              <WeChatPaySettingsSection
+                values={wechatPayValues}
+                onValueChange={setWeChatPayValue}
+              />
             </TabsContent>
 
             <TabsContent
