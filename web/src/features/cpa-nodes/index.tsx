@@ -173,7 +173,7 @@ export function CpaNodes() {
   const summary = data?.summary || { total: 0, online: 0, total_requests: 0, total_quota: 0 }
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="h-full w-full overflow-y-auto p-4 space-y-6">
       {/* Header & KPI */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
