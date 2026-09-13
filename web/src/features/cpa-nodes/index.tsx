@@ -279,7 +279,7 @@ export function CpaNodes() {
       </div>
 
       {/* Node Cards List */}
-      <div className="grid grid-cols-1 gap-6 pb-12">
+      <div className="grid grid-cols-1 gap-6">
         {items.map((node) => {
           const isOnline = node.is_online
           const usage = node.usage
@@ -287,7 +287,7 @@ export function CpaNodes() {
           const authFiles = node.auth_files_summary || []
 
           return (
-            <Card key={node.id} className="relative overflow-hidden border shadow-sm flex flex-col justify-between mb-4">
+            <Card key={node.id} className="relative overflow-hidden border shadow-sm flex flex-col justify-between">
               <div
                 className={`h-1.5 w-full ${
                   node.status === 2
