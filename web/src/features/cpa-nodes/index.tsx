@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
@@ -9,8 +9,6 @@ import {
   RefreshCw,
   Edit2,
   Trash2,
-  CheckCircle2,
-  XCircle,
   Clock,
   Layers,
   Search,
@@ -179,7 +177,7 @@ export function CpaNodes() {
   const summary = data?.summary || { total: 0, online: 0, total_requests: 0, total_quota: 0 }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-4 space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain p-4 space-y-4">
       {/* Header & KPI */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -279,7 +277,7 @@ export function CpaNodes() {
       </div>
 
       {/* Node Cards List */}
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-4">
         {items.map((node) => {
           const isOnline = node.is_online
           const usage = node.usage
@@ -289,7 +287,7 @@ export function CpaNodes() {
           return (
             <Card key={node.id} className="relative overflow-hidden border shadow-sm flex flex-col justify-between">
               <div
-                className={`h-1.5 w-full ${
+                className={`h-1 w-full ${
                   node.status === 2
                     ? 'bg-muted'
                     : isOnline
@@ -297,7 +295,7 @@ export function CpaNodes() {
                     : 'bg-destructive'
                 }`}
               />
-              <CardContent className="p-5 space-y-4">
+              <CardContent className="p-4 space-y-4">
                 {/* Node Title & Status */}
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -344,7 +342,7 @@ export function CpaNodes() {
                 )}
 
                 {/* Metrics Bar */}
-                <div className="grid grid-cols-4 gap-2 rounded-lg bg-muted/40 p-3 text-xs text-center">
+                <div className="grid grid-cols-4 gap-2 rounded-lg bg-white/30 dark:bg-white/5 p-3 text-xs text-center">
                   <div>
                     <div className="text-muted-foreground">{t('Today Requests')}</div>
                     <div className="font-bold text-sm mt-0.5">{(usage?.requests || 0).toLocaleString()}</div>
