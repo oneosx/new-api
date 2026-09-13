@@ -634,32 +634,35 @@ function CPAMCCredentialCard({
   const xaiDetail = file.xai_detail
 
   return (
-    <div className="rounded-lg border bg-card/60 p-3 text-xs space-y-2.5 shadow-sm hover:border-primary/40 transition-colors">
+    <div className="group relative flex flex-col justify-between rounded-xl border border-border/70 bg-card/75 p-3.5 text-xs shadow-sm backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md space-y-3">
       {/* Head */}
-      <div className="flex items-center justify-between border-b pb-2">
-        <div className="flex items-center gap-1.5 overflow-hidden">
-          <Badge
-            variant="outline"
-            className="uppercase font-mono text-[10px] px-1.5 py-0 bg-muted/60"
-          >
-            {provider}
-          </Badge>
+      {/* Head: Icon + Name + Status Pill */}
+      <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2.5">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/80 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border/50">
+            {provider === 'antigravity' ? 'AG' : provider === 'codex' ? 'CX' : provider === 'xai' ? 'X' : provider.slice(0, 2)}
+          </span>
           <span
-            className="font-semibold text-foreground truncate max-w-[190px]"
-            title={file.email || file.account || file.name}
+            className="font-mono text-xs font-semibold text-foreground truncate max-w-[180px] sm:max-w-[200px]"
+            title={file.name || file.email || file.account}
           >
             {file.name || file.email || file.account}
           </span>
         </div>
         <span
-          className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
+          className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase ${
             file.disabled
               ? 'bg-muted text-muted-foreground'
               : file.status === 'error'
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                ? 'bg-destructive/15 text-destructive'
+                : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
           }`}
         >
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${
+              file.disabled ? 'bg-muted-foreground' : file.status === 'error' ? 'bg-destructive' : 'bg-emerald-500'
+            }`}
+          />
           {file.disabled ? 'Disabled' : file.status === 'error' ? 'Error' : 'Active'}
         </span>
       </div>
@@ -760,46 +763,50 @@ function CPAMCCredentialCard({
         </div>
       )}
 
-      {/* Action Buttons: 刷新额度 (所有渠道) + 重置额度 (仅限 Codex) */}
-      <div className="pt-2 flex items-center justify-end gap-1.5 border-t">
-        {provider === 'codex' && onResetCodex && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-6 text-[11px] px-2 gap-1 border-primary/30 hover:bg-primary/10 text-primary"
-            onClick={onResetCodex}
-            title={t('Consume 1 reset credit to reset 5-hour and weekly limits')}
-          >
-            <RotateCcw className="h-3 w-3" />
-            {t('Reset Quota')}
-          </Button>
-        )}
-        {onRefreshSingle && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-6 text-[11px] px-2 gap-1 text-muted-foreground hover:text-foreground"
-            onClick={onRefreshSingle}
-            disabled={isRefreshing}
-            title={t('Refresh single credential quota')}
-          >
-            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {t('Refresh Quota')}
-          </Button>
-        )}
-      </div>
+      {/* Actions & Footer Stats */}
+      <div className="space-y-2 pt-1 border-t border-border/50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
+            <span>
+              {t('Success')}: <b className="text-foreground font-semibold">{file.success || 0}</b>
+            </span>
+            <span>•</span>
+            <span>
+              {t('Failed')}:{' '}
+              <b className={file.failed > 0 ? 'text-destructive font-bold' : 'text-foreground font-semibold'}>
+                {file.failed || 0}
+              </b>
+            </span>
+          </div>
 
-      {/* Footer stats */}
-      <div className="flex justify-between text-[10px] text-muted-foreground pt-1 border-t">
-        <span>
-          {t('Success')}: <b className="text-foreground">{file.success || 0}</b>
-        </span>
-        <span>
-          {t('Failed')}:{' '}
-          <b className={file.failed > 0 ? 'text-destructive font-bold' : 'text-foreground'}>
-            {file.failed || 0}
-          </b>
-        </span>
+          <div className="flex items-center gap-1.5">
+            {provider === 'codex' && onResetCodex && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[11px] px-2 gap-1 border-primary/40 hover:bg-primary/10 text-primary font-medium shadow-none"
+                onClick={onResetCodex}
+                title={t('Consume 1 reset credit to reset 5-hour and weekly limits')}
+              >
+                <RotateCcw className="h-3 w-3" />
+                {t('Reset Quota')}
+              </Button>
+            )}
+            {onRefreshSingle && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[11px] px-2 gap-1 text-muted-foreground hover:text-foreground hover:bg-muted/80 shadow-none"
+                onClick={onRefreshSingle}
+                disabled={isRefreshing}
+                title={t('Refresh single credential quota')}
+              >
+                <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {t('Refresh Quota')}
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
