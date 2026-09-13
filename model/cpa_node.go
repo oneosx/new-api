@@ -165,7 +165,6 @@ func (node *CpaNode) UpdateProbeSnapshotWithAuth(isOnline bool, latency int64, h
 	if authSummary != "" {
 		node.AuthFilesSummary = authSummary
 	}
-	node.AuthFilesSummary = authSummary
 	node.LastCheckAt = time.Now().Unix()
 	if DB == nil {
 		return nil

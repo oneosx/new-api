@@ -367,6 +367,26 @@ func RefreshSingleCpaCredentialQuota(c *gin.Context) {
 		return
 	}
 
+	// Update node's cached auth summary with the freshly refreshed credential so the list reflects it immediately
+	if node.AuthFilesSummary != "" && res != nil {
+		var list []*service.CpaAuthFileInfo
+		if err := common.UnmarshalJsonStr(node.AuthFilesSummary, &list); err == nil {
+			updated := false
+			for i, item := range list {
+				if item.Id == res.Id || item.Name == res.Name {
+					list[i] = res
+					updated = true
+					break
+				}
+			}
+			if updated {
+				if b, err := common.Marshal(list); err == nil {
+					_ = node.UpdateProbeSnapshotWithAuth(node.IsOnline, node.Latency, node.HttpStatus, node.Version, node.Models, node.LastError, string(b))
+				}
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "刷新成功",

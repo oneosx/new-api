@@ -1,5 +1,6 @@
 export interface CodexRateLimitWindowInfo {
   used_percent: number
+  remaining_percent?: number
   reset_after: string
 }
 
@@ -12,9 +13,32 @@ export interface CodexQuotaDetailedInfo {
 
 export interface XaiQuotaDetailedInfo {
   weekly_used_percent: number
+  weekly_remaining_percent?: number
   weekly_reset_after?: string
   grok_build_used: number
+  grok_build_remaining?: number
   grok_chat_used: string
+}
+
+export interface AntigravityQuotaBucket {
+  id: string
+  label: string
+  window?: string
+  remaining_percent: number
+  reset_after?: string
+  description?: string
+}
+
+export interface AntigravityQuotaGroup {
+  id: string
+  label: string
+  description?: string
+  buckets?: AntigravityQuotaBucket[]
+}
+
+export interface AntigravityQuotaDetailedInfo {
+  plan?: string
+  groups?: AntigravityQuotaGroup[]
 }
 
 export interface CpaAuthFileInfo {
@@ -35,6 +59,7 @@ export interface CpaAuthFileInfo {
   last_refresh?: string
   codex_detail?: CodexQuotaDetailedInfo
   xai_detail?: XaiQuotaDetailedInfo
+  antigravity_detail?: AntigravityQuotaDetailedInfo
 }
 
 export interface CpaNodeChannelInfo {

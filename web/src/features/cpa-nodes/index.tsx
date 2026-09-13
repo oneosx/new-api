@@ -626,6 +626,8 @@ function CPAMCCredentialCard({
   const codexSecondaryUsed = codexDetail?.secondary_window?.used_percent ?? signals['X-Codex-Secondary-Used-Percent']
   const codexPrimaryReset = codexDetail?.primary_window?.reset_after ?? formatResetSeconds(signals['X-Codex-Primary-Reset-After-Seconds'])
   const codexSecondaryReset = codexDetail?.secondary_window?.reset_after ?? formatResetSeconds(signals['X-Codex-Secondary-Reset-After-Seconds'])
+  const antigravityDetail = file.antigravity_detail
+  const displayPlanType = antigravityDetail?.plan || codexDetail?.plan_type || file.plan_type || signals['X-Codex-Plan-Type']
   const planType = codexDetail?.plan_type || file.plan_type || signals['X-Codex-Plan-Type']
 
   // Real-time xAI data from Billing API
@@ -651,12 +653,14 @@ function CPAMCCredentialCard({
         </div>
         <span
           className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
-            isErr
-              ? 'bg-destructive/10 text-destructive'
-              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+            file.disabled
+              ? 'bg-muted text-muted-foreground'
+              : file.status === 'error'
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
           }`}
         >
-          {file.status || (isErr ? 'Error' : 'Active')}
+          {file.disabled ? 'Disabled' : file.status === 'error' ? 'Error' : 'Active'}
         </span>
       </div>
 
@@ -665,7 +669,7 @@ function CPAMCCredentialCard({
         <div>
           {t('Plan')}:{' '}
           <span className="font-bold text-foreground uppercase">
-            {planType || '--'}
+            {displayPlanType || '--'}
           </span>
         </div>
         {file.subscription_to && (
@@ -676,71 +680,76 @@ function CPAMCCredentialCard({
       </div>
 
       {/* Provider-specific Quotas */}
-      {/* 1. Codex Provider (1:1 with CPAMC QuotaCard) */}
+      {/* 1. Codex Provider (1:1 with CPAMC QuotaCard: 剩余百分比与对应颜色) */}
       {provider === 'codex' && (
         <div className="space-y-2 pt-1">
           {codexPrimaryUsed !== undefined && (
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-muted-foreground font-medium">{t('5 Hour Limit')}</span>
-                <span className="font-semibold">
-                  {codexPrimaryUsed}%{' '}
-                  <span className="text-[10px] text-muted-foreground font-normal">
-                    ({codexPrimaryReset})
-                  </span>
-                </span>
-              </div>
-              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${Number(codexPrimaryUsed) > 90 ? 'bg-destructive' : 'bg-emerald-500'}`}
-                  style={{ width: `${Math.min(100, Number(codexPrimaryUsed))}%` }}
-                />
-              </div>
-            </div>
+            <QuotaProgress
+              label={t('5 Hour Limit')}
+              remaining={codexDetail?.primary_window?.remaining_percent ?? Math.max(0, 100 - Number(codexPrimaryUsed))}
+              resetAfter={codexPrimaryReset}
+            />
           )}
 
           {codexSecondaryUsed !== undefined && (
-            <div className="space-y-1">
-              <div className="flex justify-between text-[11px]">
-                <span className="text-muted-foreground font-medium">{t('Weekly Limit')}</span>
-                <span className="font-semibold">
-                  {codexSecondaryUsed}%{' '}
-                  <span className="text-[10px] text-muted-foreground font-normal">
-                    ({codexSecondaryReset})
-                  </span>
-                </span>
+            <QuotaProgress
+              label={t('Weekly Limit')}
+              remaining={codexDetail?.secondary_window?.remaining_percent ?? Math.max(0, 100 - Number(codexSecondaryUsed))}
+              resetAfter={codexSecondaryReset}
+            />
+          )}
+        </div>
+      )}
+
+      {/* 2. Antigravity Provider (1:1 with CPAMC) */}
+      {provider === 'antigravity' && (
+        <div className="space-y-2.5 pt-1">
+          {antigravityDetail?.groups && antigravityDetail.groups.length > 0 ? (
+            antigravityDetail.groups.map((group) => (
+              <div key={group.id} className="space-y-1.5 rounded bg-muted/20 p-2 border border-border/40">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-foreground">
+                  <span>{group.label}</span>
+                </div>
+                {group.description && (
+                  <div className="text-[10px] text-muted-foreground line-clamp-1" title={group.description}>
+                    {group.description}
+                  </div>
+                )}
+                <div className="space-y-1.5 pt-1">
+                  {group.buckets.map((b) => (
+                    <QuotaProgress
+                      key={b.id}
+                      label={b.label}
+                      remaining={b.remaining_percent}
+                      resetAfter={b.reset_after}
+                    />
+                  ))}
+                </div>
               </div>
-              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                <div
-                  className={`h-full ${Number(codexSecondaryUsed) > 90 ? 'bg-destructive' : 'bg-amber-500'}`}
-                  style={{ width: `${Math.min(100, Number(codexSecondaryUsed))}%` }}
-                />
-              </div>
+            ))
+          ) : (
+            <div className="py-2 text-[11px] text-muted-foreground">
+              {t('Quota data is unavailable until CPA returns a supported quota summary')}
             </div>
           )}
         </div>
       )}
 
-      {/* 2. Antigravity Provider */}
-      {provider === 'antigravity' && (
-        <div className="py-2 text-[11px] text-muted-foreground">
-          {t('Quota data is unavailable until CPA returns a supported quota summary')}
-        </div>
-      )}
-
-      {/* 3. xAI Provider */}
+      {/* 3. xAI Provider (1:1 with CPAMC: 显示已用比例并配合剩余水位条) */}
       {provider === 'xai' && (
         <div className="space-y-2 pt-1">
           {xaiDetail ? (
             <>
               <QuotaProgress
                 label={t('Weekly Limit')}
-                used={xaiDetail.weekly_used_percent}
-                resetAfter={xaiDetail.weekly_reset_after}
+                usedLabel={`已用 ${xaiDetail.weekly_used_percent}%`}
+                remaining={xaiDetail.weekly_remaining_percent ?? Math.max(0, 100 - xaiDetail.weekly_used_percent)}
+                resetAfter={xaiDetail.weekly_reset_after ? new Date(xaiDetail.weekly_reset_after).toLocaleDateString() : undefined}
               />
               <QuotaProgress
                 label={`GrokBuild ${t('Usage')}`}
-                used={xaiDetail.grok_build_used}
+                usedLabel={`已用 ${xaiDetail.grok_build_used}%`}
+                remaining={xaiDetail.grok_build_remaining ?? Math.max(0, 100 - xaiDetail.grok_build_used)}
               />
             </>
           ) : (
@@ -798,26 +807,43 @@ function CPAMCCredentialCard({
 
 function QuotaProgress({
   label,
-  used,
+  remaining,
+  usedLabel,
   resetAfter,
 }: {
   label: string
-  used: number
+  remaining: number
+  usedLabel?: string
   resetAfter?: string
 }) {
-  const normalizedUsed = Number.isFinite(used) ? Math.max(0, Math.min(100, used)) : 0
+  const normalizedRemaining = Number.isFinite(remaining) ? Math.max(0, Math.min(100, remaining)) : 0
+  // 1:1 CPAMC QuotaMeter: ≥70 绿 / ≥30 琥珀 / <30 危险红
+  const colorClass =
+    normalizedRemaining >= 70
+      ? 'bg-emerald-500'
+      : normalizedRemaining >= 30
+        ? 'bg-amber-500'
+        : 'bg-destructive'
+  const textColorClass =
+    normalizedRemaining < 30
+      ? 'text-destructive'
+      : normalizedRemaining < 70
+        ? 'text-amber-600 dark:text-amber-400'
+        : 'text-emerald-600 dark:text-emerald-400'
+
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-[11px]">
         <span className="text-muted-foreground">{label}</span>
-        <span className={`font-semibold ${normalizedUsed >= 90 ? 'text-destructive' : 'text-foreground'}`}>
-          {normalizedUsed}% {resetAfter ? <span className="text-[10px] font-normal text-muted-foreground">({resetAfter})</span> : null}
+        <span className={`font-semibold ${textColorClass}`}>
+          {usedLabel || `剩余 ${normalizedRemaining}%`}{' '}
+          {resetAfter ? <span className="text-[10px] font-normal text-muted-foreground">({resetAfter})</span> : null}
         </span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className={normalizedUsed >= 90 ? 'h-full bg-destructive' : 'h-full bg-emerald-500'}
-          style={{ width: `${normalizedUsed}%` }}
+          className={`h-full ${colorClass}`}
+          style={{ width: `${normalizedRemaining}%` }}
         />
       </div>
     </div>

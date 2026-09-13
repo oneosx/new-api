@@ -1,9 +1,12 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -13,8 +16,9 @@ import (
 )
 
 type CodexRateLimitWindowInfo struct {
-	UsedPercent int    `json:"used_percent"`
-	ResetAfter  string `json:"reset_after"`
+	UsedPercent      int    `json:"used_percent"`
+	RemainingPercent int    `json:"remaining_percent"`
+	ResetAfter       string `json:"reset_after"`
 }
 
 type CodexQuotaDetailedInfo struct {
@@ -25,10 +29,33 @@ type CodexQuotaDetailedInfo struct {
 }
 
 type XaiQuotaDetailedInfo struct {
-	WeeklyUsedPercent int    `json:"weekly_used_percent"`
-	WeeklyResetAfter  string `json:"weekly_reset_after,omitempty"`
-	GrokBuildUsed     int    `json:"grok_build_used"`
-	GrokChatUsed      string `json:"grok_chat_used"`
+	WeeklyUsedPercent      int    `json:"weekly_used_percent"`
+	WeeklyRemainingPercent int    `json:"weekly_remaining_percent"`
+	WeeklyResetAfter       string `json:"weekly_reset_after,omitempty"`
+	GrokBuildUsed          int    `json:"grok_build_used"`
+	GrokBuildRemaining     int    `json:"grok_build_remaining"`
+	GrokChatUsed           string `json:"grok_chat_used"`
+}
+
+type AntigravityQuotaBucket struct {
+	ID               string `json:"id"`
+	Label            string `json:"label"`
+	Window           string `json:"window,omitempty"`
+	RemainingPercent int    `json:"remaining_percent"`
+	ResetAfter       string `json:"reset_after,omitempty"`
+	Description      string `json:"description,omitempty"`
+}
+
+type AntigravityQuotaGroup struct {
+	ID          string                   `json:"id"`
+	Label       string                   `json:"label"`
+	Description string                   `json:"description,omitempty"`
+	Buckets     []AntigravityQuotaBucket `json:"buckets,omitempty"`
+}
+
+type AntigravityQuotaDetailedInfo struct {
+	Plan   string                  `json:"plan,omitempty"`
+	Groups []AntigravityQuotaGroup `json:"groups,omitempty"`
 }
 
 type CpaAuthFileInfo struct {
@@ -49,8 +76,9 @@ type CpaAuthFileInfo struct {
 	LastRefresh    string         `json:"last_refresh,omitempty"`
 	AuthIndex      string         `json:"-"`
 	// Real-time fetched rich quotas
-	CodexDetail *CodexQuotaDetailedInfo `json:"codex_detail,omitempty"`
-	XaiDetail   *XaiQuotaDetailedInfo   `json:"xai_detail,omitempty"`
+	CodexDetail       *CodexQuotaDetailedInfo       `json:"codex_detail,omitempty"`
+	XaiDetail         *XaiQuotaDetailedInfo         `json:"xai_detail,omitempty"`
+	AntigravityDetail *AntigravityQuotaDetailedInfo `json:"antigravity_detail,omitempty"`
 }
 
 type CpaProbeResult struct {
@@ -84,6 +112,7 @@ type rawAuthFilesResponse struct {
 		LastRefresh string `json:"last_refresh"`
 		AuthIndex   string `json:"auth_index"`
 		ProjectId   string `json:"project_id"`
+		ProjectID   string `json:"projectId"`
 		Success     int64  `json:"success"`
 		Failed      int64  `json:"failed"`
 		IdToken     struct {
@@ -244,20 +273,39 @@ func ProbeCpaNode(ctx context.Context, node *model.CpaNode) (*CpaProbeResult, er
 							providerLower := strings.ToLower(f.Provider)
 							typeLower := strings.ToLower(f.Type)
 
+							quotaCtx, quotaCancel := context.WithTimeout(context.Background(), 25*time.Second)
+							quotaClient := &http.Client{Timeout: 20 * time.Second}
+
 							// 1. Fetch real-time Codex details if applicable
 							if (providerLower == "codex" || typeLower == "codex") && f.AuthIndex != "" {
-								if detail := fetchCodexRealtimeQuota(reqCtx, client, normURL, apiKey, f.AuthIndex, f.Account); detail != nil {
+								accountID := f.Account
+								if accountID == "" && f.Email != "" {
+									accountID = f.Email
+								}
+								if detail := fetchCodexRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex, accountID); detail != nil {
 									info.CodexDetail = detail
 								}
 							}
 
 							// 2. Fetch real-time xAI details if applicable
 							if (providerLower == "xai" || typeLower == "xai") && f.AuthIndex != "" {
-								if xaiDetail := fetchXaiRealtimeQuota(reqCtx, client, normURL, apiKey, f.AuthIndex); xaiDetail != nil {
+								if xaiDetail := fetchXaiRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex); xaiDetail != nil {
 									info.XaiDetail = xaiDetail
 								}
 							}
 
+							// 3. Fetch real-time Antigravity details if applicable
+							if (providerLower == "antigravity" || typeLower == "antigravity") && f.AuthIndex != "" {
+								projID := f.ProjectId
+								if projID == "" {
+									projID = f.ProjectID
+								}
+								if antiDetail := fetchAntigravityRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex, projID); antiDetail != nil {
+									info.AntigravityDetail = antiDetail
+								}
+							}
+
+							quotaCancel()
 							authFilesList = append(authFilesList, info)
 						}
 					}
@@ -338,6 +386,8 @@ func RefreshSingleAuthFileQuota(ctx context.Context, node *model.CpaNode, authFi
 		AuthIndex string
 		Account   string
 		Provider  string
+		ProjectId string
+		Email     string
 	}
 
 	for _, f := range rawAuth.Files {
@@ -363,6 +413,11 @@ func RefreshSingleAuthFileQuota(ctx context.Context, node *model.CpaNode, authFi
 			targetRaw.AuthIndex = f.AuthIndex
 			targetRaw.Account = f.Account
 			targetRaw.Provider = strings.ToLower(f.Provider)
+			targetRaw.ProjectId = f.ProjectId
+			if targetRaw.ProjectId == "" {
+				targetRaw.ProjectId = f.ProjectID
+			}
+			targetRaw.Email = f.Email
 			break
 		}
 	}
@@ -371,17 +426,26 @@ func RefreshSingleAuthFileQuota(ctx context.Context, node *model.CpaNode, authFi
 		return nil, fmt.Errorf("credential %q not found on node", authFileID)
 	}
 
+	quotaCtx, quotaCancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer quotaCancel()
+	quotaClient := &http.Client{Timeout: 20 * time.Second}
+
 	if targetRaw.Provider == "codex" && targetRaw.AuthIndex != "" {
-		targetFile.CodexDetail = fetchCodexRealtimeQuota(ctx, client, normURL, apiKey, targetRaw.AuthIndex, targetRaw.Account)
+		accountID := targetRaw.Account
+		if accountID == "" && targetRaw.Email != "" {
+			accountID = targetRaw.Email
+		}
+		targetFile.CodexDetail = fetchCodexRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, targetRaw.AuthIndex, accountID)
 	} else if targetRaw.Provider == "xai" && targetRaw.AuthIndex != "" {
-		targetFile.XaiDetail = fetchXaiRealtimeQuota(ctx, client, normURL, apiKey, targetRaw.AuthIndex)
+		targetFile.XaiDetail = fetchXaiRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, targetRaw.AuthIndex)
+	} else if targetRaw.Provider == "antigravity" && targetRaw.AuthIndex != "" {
+		targetFile.AntigravityDetail = fetchAntigravityRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, targetRaw.AuthIndex, targetRaw.ProjectId)
 	}
 
 	return targetFile, nil
 }
 
 func fetchCodexRealtimeQuota(ctx context.Context, client *http.Client, baseURL, apiKey, authIndex, accountID string) *CodexQuotaDetailedInfo {
-	callURL := baseURL + "/v0/management/api-call"
 	header := map[string]string{
 		"Authorization": "Bearer $TOKEN$",
 		"Accept":        "application/json",
@@ -392,143 +456,286 @@ func fetchCodexRealtimeQuota(ctx context.Context, client *http.Client, baseURL, 
 		header["chatgpt-account-id"] = accountID
 	}
 
-	reqPayload := map[string]any{
-		"authIndex": authIndex,
-		"method":    "GET",
-		"url":       "https://chatgpt.com/backend-api/wham/usage",
-		"header":    header,
-	}
-	bodyBytes, err := common.Marshal(reqPayload)
-	if err != nil {
+	statusCode, bodyBytes, err := executeCpaManagementApiCall(
+		ctx, client, baseURL, apiKey, authIndex,
+		http.MethodGet, "https://chatgpt.com/backend-api/wham/usage",
+		header, "",
+	)
+	if err != nil || statusCode != http.StatusOK {
 		return nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, callURL, strings.NewReader(string(bodyBytes)))
-	if err != nil {
-		return nil
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil
-	}
-
-	respBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	type whamApiResp struct {
-		StatusCode int `json:"status_code"`
-		Body       struct {
-			PlanType  string `json:"plan_type"`
-			RateLimit struct {
-				PrimaryWindow struct {
-					UsedPercent       int `json:"used_percent"`
-					ResetAfterSeconds int `json:"reset_after_seconds"`
-				} `json:"primary_window"`
-				SecondaryWindow struct {
-					UsedPercent       int `json:"used_percent"`
-					ResetAfterSeconds int `json:"reset_after_seconds"`
-				} `json:"secondary_window"`
-			} `json:"rate_limit"`
-			RateLimitResetCredits struct {
-				AvailableCount int `json:"available_count"`
-			} `json:"rate_limit_reset_credits"`
-		} `json:"body"`
+		PlanType  string `json:"plan_type"`
+		RateLimit struct {
+			PrimaryWindow struct {
+				UsedPercent       int `json:"used_percent"`
+				ResetAfterSeconds int `json:"reset_after_seconds"`
+			} `json:"primary_window"`
+			SecondaryWindow struct {
+				UsedPercent       int `json:"used_percent"`
+				ResetAfterSeconds int `json:"reset_after_seconds"`
+			} `json:"secondary_window"`
+		} `json:"rate_limit"`
+		RateLimitResetCredits struct {
+			AvailableCount int `json:"available_count"`
+		} `json:"rate_limit_reset_credits"`
 	}
 
 	var parsed whamApiResp
-	if err := common.Unmarshal(respBytes, &parsed); err != nil || parsed.StatusCode != http.StatusOK {
+	if err := common.Unmarshal(bodyBytes, &parsed); err != nil {
 		return nil
 	}
 
+	primUsed := parsed.RateLimit.PrimaryWindow.UsedPercent
+	secUsed := parsed.RateLimit.SecondaryWindow.UsedPercent
+
 	return &CodexQuotaDetailedInfo{
-		PlanType: parsed.Body.PlanType,
+		PlanType: parsed.PlanType,
 		PrimaryWindow: &CodexRateLimitWindowInfo{
-			UsedPercent: parsed.Body.RateLimit.PrimaryWindow.UsedPercent,
-			ResetAfter:  formatSecondsToFriendly(parsed.Body.RateLimit.PrimaryWindow.ResetAfterSeconds),
+			UsedPercent:      primUsed,
+			RemainingPercent: int(math.Max(0, float64(100-primUsed))),
+			ResetAfter:       formatSecondsToFriendly(parsed.RateLimit.PrimaryWindow.ResetAfterSeconds),
 		},
 		SecondaryWindow: &CodexRateLimitWindowInfo{
-			UsedPercent: parsed.Body.RateLimit.SecondaryWindow.UsedPercent,
-			ResetAfter:  formatSecondsToFriendly(parsed.Body.RateLimit.SecondaryWindow.ResetAfterSeconds),
+			UsedPercent:      secUsed,
+			RemainingPercent: int(math.Max(0, float64(100-secUsed))),
+			ResetAfter:       formatSecondsToFriendly(parsed.RateLimit.SecondaryWindow.ResetAfterSeconds),
 		},
-		AvailableResetCredits: parsed.Body.RateLimitResetCredits.AvailableCount,
+		AvailableResetCredits: parsed.RateLimitResetCredits.AvailableCount,
 	}
 }
 
 func fetchXaiRealtimeQuota(ctx context.Context, client *http.Client, baseURL, apiKey, authIndex string) *XaiQuotaDetailedInfo {
-	callURL := baseURL + "/v0/management/api-call"
-	reqPayload := map[string]any{
-		"authIndex": authIndex,
-		"method":    "GET",
-		"url":       "https://cli-chat-proxy.grok.com/v1/billing?format=credits",
-		"header": map[string]string{
-			"Authorization":         "Bearer $TOKEN$",
-			"x-grok-client-version": "0.2.91",
-			"user-agent":            "grok-pager/0.2.91 grok-shell/0.2.91 (macos; aarch64)",
-		},
+	header := map[string]string{
+		"Authorization":         "Bearer $TOKEN$",
+		"x-xai-token-auth":      "xai-grok-cli",
+		"x-grok-client-version": "0.2.91",
+		"accept":                "*/*",
+		"user-agent":            "grok-pager/0.2.91 grok-shell/0.2.91 (macos; aarch64)",
 	}
-	bodyBytes, err := common.Marshal(reqPayload)
-	if err != nil {
+
+	statusCode, bodyBytes, err := executeCpaManagementApiCall(
+		ctx, client, baseURL, apiKey, authIndex,
+		http.MethodGet, "https://cli-chat-proxy.grok.com/v1/billing?format=credits",
+		header, "",
+	)
+	if err != nil || statusCode != http.StatusOK {
 		return nil
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, callURL, strings.NewReader(string(bodyBytes)))
-	if err != nil {
-		return nil
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil
+	type xaiConfig struct {
+		CreditUsagePercent float64 `json:"creditUsagePercent"`
+		ProductUsage       []struct {
+			Product      string  `json:"product"`
+			UsagePercent float64 `json:"usagePercent"`
+		} `json:"productUsage"`
+		CurrentPeriod struct {
+			End string `json:"end"`
+		} `json:"currentPeriod"`
 	}
 
-	respBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	type xaiApiResp struct {
-		StatusCode int `json:"status_code"`
-		Body       struct {
-			Config struct {
-				CreditUsagePercent float64 `json:"creditUsagePercent"`
-				ProductUsage       []struct {
-					Product      string  `json:"product"`
-					UsagePercent float64 `json:"usagePercent"`
-				} `json:"productUsage"`
-				CurrentPeriod struct {
-					End string `json:"end"`
-				} `json:"currentPeriod"`
-			} `json:"config"`
-		} `json:"body"`
+	var parsed struct {
+		Config xaiConfig `json:"config"`
 	}
-
-	var parsed xaiApiResp
-	if err := common.Unmarshal(respBytes, &parsed); err != nil || parsed.StatusCode != http.StatusOK {
+	if err := common.Unmarshal(bodyBytes, &parsed); err != nil {
 		return nil
 	}
 
+	weeklyUsed := int(parsed.Config.CreditUsagePercent)
 	grokBuildUsed := 0
-	for _, p := range parsed.Body.Config.ProductUsage {
+	for _, p := range parsed.Config.ProductUsage {
 		if strings.EqualFold(p.Product, "GrokBuild") {
 			grokBuildUsed = int(p.UsagePercent)
 		}
 	}
 
 	return &XaiQuotaDetailedInfo{
-		WeeklyUsedPercent: int(parsed.Body.Config.CreditUsagePercent),
-		WeeklyResetAfter:  parsed.Body.Config.CurrentPeriod.End,
-		GrokBuildUsed:     grokBuildUsed,
-		GrokChatUsed:      "--",
+		WeeklyUsedPercent:      weeklyUsed,
+		WeeklyRemainingPercent: int(math.Max(0, float64(100-weeklyUsed))),
+		WeeklyResetAfter:       parsed.Config.CurrentPeriod.End,
+		GrokBuildUsed:          grokBuildUsed,
+		GrokBuildRemaining:     int(math.Max(0, float64(100-grokBuildUsed))),
+		GrokChatUsed:           "--",
 	}
+}
+
+func fetchAntigravityRealtimeQuota(ctx context.Context, client *http.Client, baseURL, apiKey, authIndex, projectID string) *AntigravityQuotaDetailedInfo {
+	header := map[string]string{
+		"Authorization": "Bearer $TOKEN$",
+		"Content-Type":  "application/json",
+		"User-Agent":    "antigravity/cli/1.0.13 (aidev_client; os_type=darwin; arch=arm64)",
+	}
+
+	// 1. Fetch Subscription Plan from loadCodeAssist
+	plan := "free"
+	subStatusCode, subBody, subErr := executeCpaManagementApiCall(
+		ctx, client, baseURL, apiKey, authIndex,
+		http.MethodPost, "https://daily-cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
+		header, `{"metadata":{"ideType":"ANTIGRAVITY"}}`,
+	)
+	if subErr == nil && subStatusCode == http.StatusOK {
+		var subPayload struct {
+			CurrentTier struct {
+				Id string `json:"id"`
+			} `json:"currentTier"`
+			PaidTier struct {
+				Id string `json:"id"`
+			} `json:"paidTier"`
+		}
+		if err := common.Unmarshal(subBody, &subPayload); err == nil {
+			tierID := subPayload.PaidTier.Id
+			if tierID == "" {
+				tierID = subPayload.CurrentTier.Id
+			}
+			switch tierID {
+			case "g1-pro-tier":
+				plan = "pro"
+			case "g1-ultra-tier":
+				plan = "ultra"
+			case "g1-ultra-lite-tier":
+				plan = "ultra-lite"
+			default:
+				if tierID != "" {
+					plan = tierID
+				}
+			}
+		}
+	}
+
+	// 2. Fetch Quota Summary with project ID
+	if projectID == "" {
+		return &AntigravityQuotaDetailedInfo{Plan: plan}
+	}
+
+	projJSON, _ := common.Marshal(projectID)
+	reqData := fmt.Sprintf(`{"project":%s}`, string(projJSON))
+	quotaURLs := []string{
+		"https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+		"https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+	}
+
+	var quotaBody []byte
+	for _, u := range quotaURLs {
+		sc, b, err := executeCpaManagementApiCall(ctx, client, baseURL, apiKey, authIndex, http.MethodPost, u, header, reqData)
+		if err == nil && sc == http.StatusOK && len(b) > 0 {
+			quotaBody = b
+			break
+		}
+	}
+	if len(quotaBody) == 0 {
+		return &AntigravityQuotaDetailedInfo{Plan: plan}
+	}
+
+	type summaryPayload struct {
+		Groups []struct {
+			DisplayName string `json:"displayName"`
+			Description string `json:"description"`
+			Buckets     []struct {
+				BucketID          string  `json:"bucketId"`
+				DisplayName       string  `json:"displayName"`
+				Window            string  `json:"window"`
+				ResetTime         string  `json:"resetTime"`
+				RemainingFraction float64 `json:"remainingFraction"`
+				Description       string  `json:"description"`
+			} `json:"buckets"`
+		} `json:"groups"`
+	}
+
+	var parsed summaryPayload
+	if err := common.Unmarshal(quotaBody, &parsed); err != nil {
+		return &AntigravityQuotaDetailedInfo{Plan: plan}
+	}
+
+	var groups []AntigravityQuotaGroup
+	for _, g := range parsed.Groups {
+		grp := AntigravityQuotaGroup{
+			ID:          strings.ToLower(strings.ReplaceAll(g.DisplayName, " ", "-")),
+			Label:       g.DisplayName,
+			Description: g.Description,
+		}
+		for _, b := range g.Buckets {
+			remPercent := int(math.Round(b.RemainingFraction * 100))
+			if remPercent < 0 {
+				remPercent = 0
+			} else if remPercent > 100 {
+				remPercent = 100
+			}
+			resetFormatted := b.ResetTime
+			if t, err := time.Parse(time.RFC3339, b.ResetTime); err == nil {
+				dur := time.Until(t)
+				if dur > 0 {
+					resetFormatted = formatSecondsToFriendly(int(dur.Seconds()))
+				}
+			}
+
+			grp.Buckets = append(grp.Buckets, AntigravityQuotaBucket{
+				ID:               b.BucketID,
+				Label:            b.DisplayName,
+				Window:           b.Window,
+				RemainingPercent: remPercent,
+				ResetAfter:       resetFormatted,
+				Description:      b.Description,
+			})
+		}
+		groups = append(groups, grp)
+	}
+
+	return &AntigravityQuotaDetailedInfo{
+		Plan:   plan,
+		Groups: groups,
+	}
+}
+
+// Helper to execute CPA management api-call and unwrap response body whether it is an object or JSON string
+func executeCpaManagementApiCall(ctx context.Context, client *http.Client, baseURL, apiKey, authIndex, method, targetURL string, headers map[string]string, data string) (int, []byte, error) {
+	callURL := strings.TrimRight(baseURL, "/") + "/v0/management/api-call"
+	reqPayload := map[string]any{
+		"authIndex": authIndex,
+		"method":    method,
+		"url":       targetURL,
+		"header":    headers,
+	}
+	if data != "" {
+		reqPayload["data"] = data
+	}
+	bodyBytes, err := common.Marshal(reqPayload)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, callURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if err != nil {
+		return resp.StatusCode, nil, err
+	}
+
+	var rawEnvelope struct {
+		StatusCode int             `json:"status_code"`
+		Body       json.RawMessage `json:"body"`
+	}
+	if err := common.Unmarshal(respBytes, &rawEnvelope); err != nil {
+		return resp.StatusCode, nil, err
+	}
+
+	bodyData := rawEnvelope.Body
+	var bodyStr string
+	if err := common.Unmarshal(bodyData, &bodyStr); err == nil {
+		return rawEnvelope.StatusCode, []byte(bodyStr), nil
+	}
+	return rawEnvelope.StatusCode, bodyData, nil
 }
 
 func formatSecondsToFriendly(sec int) string {
