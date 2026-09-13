@@ -28,15 +28,15 @@ type CpaNode struct {
 	UpdatedTime   int64  `json:"updated_time" gorm:"bigint"`
 
 	// Probe snapshot fields
-	IsOnline    bool   `json:"is_online" gorm:"default:false"`
-	Latency     int64  `json:"latency" gorm:"bigint;default:0"`
-	HttpStatus  int    `json:"http_status" gorm:"default:0"`
-	Version     string `json:"version" gorm:"type:varchar(64);default:''"`
-	ModelCount  int    `json:"model_count" gorm:"default:0"`
-	Models      string `json:"models" gorm:"type:text"`
-	LastError   string `json:"last_error" gorm:"type:varchar(255);default:''"`
+	IsOnline         bool   `json:"is_online"`
+	Latency          int64  `json:"latency" gorm:"bigint;default:0"`
+	HttpStatus       int    `json:"http_status" gorm:"default:0"`
+	Version          string `json:"version" gorm:"type:varchar(64);default:''"`
+	ModelCount       int    `json:"model_count" gorm:"default:0"`
+	Models           string `json:"models" gorm:"type:text"`
+	LastError        string `json:"last_error" gorm:"type:varchar(255);default:''"`
 	AuthFilesSummary string `json:"auth_files_summary" gorm:"type:text"`
-	LastCheckAt int64  `json:"last_check_at" gorm:"bigint;default:0;index"`
+	LastCheckAt      int64  `json:"last_check_at" gorm:"bigint;default:0;index"`
 }
 
 func NormalizeCpaBaseURL(raw string) (string, error) {
@@ -172,12 +172,12 @@ func (node *CpaNode) UpdateProbeSnapshotWithAuth(isOnline bool, latency int64, h
 	}
 
 	updates := map[string]any{
-		"is_online":          isOnline,
-		"latency":            latency,
-		"http_status":        httpStatus,
-		"version":            version,
-		"model_count":        modelCount,
-		"models":             modelsTrimmed,
+		"is_online":     isOnline,
+		"latency":       latency,
+		"http_status":   httpStatus,
+		"version":       version,
+		"model_count":   modelCount,
+		"models":        modelsTrimmed,
 		"last_error":    lastError,
 		"last_check_at": time.Now().Unix(),
 	}

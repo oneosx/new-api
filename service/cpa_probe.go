@@ -18,10 +18,10 @@ type CodexRateLimitWindowInfo struct {
 }
 
 type CodexQuotaDetailedInfo struct {
-	PlanType             string                    `json:"plan_type"`
-	PrimaryWindow        *CodexRateLimitWindowInfo `json:"primary_window,omitempty"`
-	SecondaryWindow      *CodexRateLimitWindowInfo `json:"secondary_window,omitempty"`
-	AvailableResetCredits int                      `json:"available_reset_credits"`
+	PlanType              string                    `json:"plan_type"`
+	PrimaryWindow         *CodexRateLimitWindowInfo `json:"primary_window,omitempty"`
+	SecondaryWindow       *CodexRateLimitWindowInfo `json:"secondary_window,omitempty"`
+	AvailableResetCredits int                       `json:"available_reset_credits"`
 }
 
 type XaiQuotaDetailedInfo struct {
@@ -32,25 +32,25 @@ type XaiQuotaDetailedInfo struct {
 }
 
 type CpaAuthFileInfo struct {
-	Id             string                  `json:"id"`
-	Name           string                  `json:"name"`
-	Provider       string                  `json:"provider"`
-	Type           string                  `json:"type"`
-	Status         string                  `json:"status"`
-	Disabled       bool                    `json:"disabled"`
-	Email          string                  `json:"email,omitempty"`
-	Account        string                  `json:"account,omitempty"`
-	PlanType       string                  `json:"plan_type,omitempty"`
-	SubscriptionTo string                  `json:"subscription_to,omitempty"`
-	QuotaSignals   map[string]any          `json:"quota_signals,omitempty"`
-	ModelQuotas    map[string]any          `json:"model_quotas,omitempty"`
-	Success        int64                   `json:"success"`
-	Failed         int64                   `json:"failed"`
-	LastRefresh    string                  `json:"last_refresh,omitempty"`
-	AuthIndex      string                  `json:"auth_index,omitempty"`
+	Id             string         `json:"id"`
+	Name           string         `json:"name"`
+	Provider       string         `json:"provider"`
+	Type           string         `json:"type"`
+	Status         string         `json:"status"`
+	Disabled       bool           `json:"disabled"`
+	Email          string         `json:"email,omitempty"`
+	Account        string         `json:"account,omitempty"`
+	PlanType       string         `json:"plan_type,omitempty"`
+	SubscriptionTo string         `json:"subscription_to,omitempty"`
+	QuotaSignals   map[string]any `json:"quota_signals,omitempty"`
+	ModelQuotas    map[string]any `json:"model_quotas,omitempty"`
+	Success        int64          `json:"success"`
+	Failed         int64          `json:"failed"`
+	LastRefresh    string         `json:"last_refresh,omitempty"`
+	AuthIndex      string         `json:"-"`
 	// Real-time fetched rich quotas
-	CodexDetail    *CodexQuotaDetailedInfo `json:"codex_detail,omitempty"`
-	XaiDetail      *XaiQuotaDetailedInfo   `json:"xai_detail,omitempty"`
+	CodexDetail *CodexQuotaDetailedInfo `json:"codex_detail,omitempty"`
+	XaiDetail   *XaiQuotaDetailedInfo   `json:"xai_detail,omitempty"`
 }
 
 type CpaProbeResult struct {
@@ -206,6 +206,7 @@ func ProbeCpaNode(ctx context.Context, node *model.CpaNode) (*CpaProbeResult, er
 
 	// Fetch /v0/management/auth-files for credentials & quota
 	var authFilesList []*CpaAuthFileInfo
+	authFilesFetched := false
 	if apiKey != "" {
 		authReqURL := normURL + "/v0/management/auth-files"
 		authReq, authReqErr := http.NewRequestWithContext(reqCtx, http.MethodGet, authReqURL, nil)
@@ -219,6 +220,7 @@ func ProbeCpaNode(ctx context.Context, node *model.CpaNode) (*CpaProbeResult, er
 					authBody, _ := io.ReadAll(io.LimitReader(authResp.Body, 2<<20))
 					var rawAuth rawAuthFilesResponse
 					if err := common.Unmarshal(authBody, &rawAuth); err == nil {
+						authFilesFetched = true
 						for _, f := range rawAuth.Files {
 							info := &CpaAuthFileInfo{
 								Id:             f.Id,
@@ -266,7 +268,7 @@ func ProbeCpaNode(ctx context.Context, node *model.CpaNode) (*CpaProbeResult, er
 
 	modelsJoined := strings.Join(modelIDs, ",")
 	authSummaryJSON := ""
-	if len(authFilesList) > 0 {
+	if authFilesFetched {
 		if b, err := common.Marshal(authFilesList); err == nil {
 			authSummaryJSON = string(b)
 		}
@@ -425,12 +427,12 @@ func fetchCodexRealtimeQuota(ctx context.Context, client *http.Client, baseURL, 
 			PlanType  string `json:"plan_type"`
 			RateLimit struct {
 				PrimaryWindow struct {
-					UsedPercent        int `json:"used_percent"`
-					ResetAfterSeconds  int `json:"reset_after_seconds"`
+					UsedPercent       int `json:"used_percent"`
+					ResetAfterSeconds int `json:"reset_after_seconds"`
 				} `json:"primary_window"`
 				SecondaryWindow struct {
-					UsedPercent        int `json:"used_percent"`
-					ResetAfterSeconds  int `json:"reset_after_seconds"`
+					UsedPercent       int `json:"used_percent"`
+					ResetAfterSeconds int `json:"reset_after_seconds"`
 				} `json:"secondary_window"`
 			} `json:"rate_limit"`
 			RateLimitResetCredits struct {

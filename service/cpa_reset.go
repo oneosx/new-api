@@ -145,23 +145,27 @@ func ResetCodexAuthFileQuota(ctx context.Context, node *model.CpaNode, authFileI
 	}
 	defer callResp.Body.Close()
 
-	callRespBytes, _ := io.ReadAll(io.LimitReader(callResp.Body, 1<<20))
-	type apiCallGenericResp struct {
-		StatusCode int             `json:"status_code"`
-		Body       any `json:"body"`
+	if callResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("reset-credit precheck request failed: HTTP %d", callResp.StatusCode)
 	}
-
+	callRespBytes, err := io.ReadAll(io.LimitReader(callResp.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read reset-credit precheck: %w", err)
+	}
 	type resetCreditResp struct {
 		AvailableCount int `json:"available_count"`
 	}
-
 	var precheckApiRes struct {
 		StatusCode int             `json:"status_code"`
 		Body       resetCreditResp `json:"body"`
 	}
-	_ = common.Unmarshal(callRespBytes, &precheckApiRes)
-
-	if precheckApiRes.StatusCode == http.StatusOK && precheckApiRes.Body.AvailableCount <= 0 {
+	if err := common.Unmarshal(callRespBytes, &precheckApiRes); err != nil {
+		return nil, fmt.Errorf("invalid reset-credit precheck response: %w", err)
+	}
+	if precheckApiRes.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("reset-credit precheck upstream returned HTTP %d", precheckApiRes.StatusCode)
+	}
+	if precheckApiRes.Body.AvailableCount <= 0 {
 		return nil, fmt.Errorf("no rate limit reset credits available for this account")
 	}
 

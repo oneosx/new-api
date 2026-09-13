@@ -1,5 +1,5 @@
 import { api } from '@/lib/api'
-import { CpaNodeItem, CpaNodesResponse, CpaSyncDiffResult, CpaAuthFileInfo } from './types'
+import { CpaNodeItem, CpaNodesResponse, CpaAuthFileInfo } from './types'
 
 export async function fetchCpaNodes(window = 'today', fresh = false): Promise<CpaNodesResponse> {
   const res = await api.get<{ success: boolean; message?: string; data: CpaNodesResponse }>('/api/cpa-node', {
@@ -52,18 +52,6 @@ export async function probeCpaNode(id: number): Promise<any> {
   return res.data?.data
 }
 
-export async function syncCpaModels(id: number, req: {
-  channel_ids: number[]
-  mode: 'merge' | 'replace'
-  apply: boolean
-  confirm_replace?: boolean
-}): Promise<CpaSyncDiffResult[]> {
-  const res = await api.post<{ success: boolean; message?: string; data: CpaSyncDiffResult[] }>(`/api/cpa-node/${id}/sync-channels`, req)
-  if (!res.data?.success) {
-    throw new Error(res.data?.message || 'Failed to sync models')
-  }
-  return res.data?.data || []
-}
 
 export async function resetCodexCredentialQuota(nodeId: number, authFileId: string): Promise<any> {
   const res = await api.post<{ success: boolean; message?: string; data: any }>(`/api/cpa-node/${nodeId}/reset-codex-quota`, {

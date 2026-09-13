@@ -33,7 +33,6 @@ export interface CpaAuthFileInfo {
   success: number
   failed: number
   last_refresh?: string
-  auth_index?: string
   codex_detail?: CodexQuotaDetailedInfo
   xai_detail?: XaiQuotaDetailedInfo
 }
@@ -91,16 +90,4 @@ export interface CpaNodesResponse {
     total_requests: number
     total_quota: number
   }
-}
-
-export interface CpaSyncDiffResult {
-  channel_id: number
-  channel_name: string
-  original: string[]
-  target: string[]
-  added: string[]
-  removed: string[]
-  kept: string[]
-  applied: boolean
-  error_message?: string
 }

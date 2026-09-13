@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -47,25 +46,6 @@ type CreateOrUpdateCpaNodeRequest struct {
 	Status      int    `json:"status"`
 	Weight      int    `json:"weight"`
 	Description string `json:"description"`
-}
-
-type CpaSyncChannelsRequest struct {
-	ChannelIds     []int  `json:"channel_ids"`
-	Mode           string `json:"mode"` // "merge" or "replace"
-	Apply          bool   `json:"apply"`
-	ConfirmReplace bool   `json:"confirm_replace"`
-}
-
-type CpaSyncDiffResult struct {
-	ChannelId    int      `json:"channel_id"`
-	ChannelName  string   `json:"channel_name"`
-	Original     []string `json:"original"`
-	Target       []string `json:"target"`
-	Added        []string `json:"added"`
-	Removed      []string `json:"removed"`
-	Kept         []string `json:"kept"`
-	Applied      bool     `json:"applied"`
-	ErrorMessage string   `json:"error_message,omitempty"`
 }
 
 func GetAllCpaNodes(c *gin.Context) {
@@ -307,151 +287,6 @@ func ProbeCpaNode(c *gin.Context) {
 		"success": true,
 		"message": "",
 		"data":    res,
-	})
-}
-
-func SyncCpaModelsToChannels(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "无效的节点 ID"})
-		return
-	}
-	node, err := model.GetCpaNodeById(id)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "节点不存在: " + err.Error()})
-		return
-	}
-
-	var req CpaSyncChannelsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "参数错误: " + err.Error()})
-		return
-	}
-
-	if req.Mode == "" {
-		req.Mode = "merge"
-	}
-	if req.Mode == "replace" && req.Apply && !req.ConfirmReplace {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "覆盖模式必须勾选确认选项"})
-		return
-	}
-
-	probeRes, err := service.ProbeCpaNode(c.Request.Context(), node)
-	if err != nil || probeRes == nil || !probeRes.Online {
-		msg := "探测失败，无法同步模型"
-		if probeRes != nil && probeRes.Error != "" {
-			msg = probeRes.Error
-		}
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": msg})
-		return
-	}
-
-	targetModelsMap := make(map[string]struct{})
-	for _, m := range probeRes.Models {
-		targetModelsMap[m] = struct{}{}
-	}
-
-	channels, err := service.GetChannelsForCpaNode(node)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
-		return
-	}
-
-	channelMap := make(map[int]*service.CpaNodeChannelInfo)
-	for _, ch := range channels {
-		channelMap[ch.Id] = ch
-	}
-
-	var diffs []*CpaSyncDiffResult
-	for _, chId := range req.ChannelIds {
-		info, ok := channelMap[chId]
-		if !ok {
-			diffs = append(diffs, &CpaSyncDiffResult{
-				ChannelId:    chId,
-				ErrorMessage: "渠道未关联到此 CPA 节点",
-			})
-			continue
-		}
-
-		origMap := make(map[string]struct{})
-		for _, m := range info.Models {
-			origMap[m] = struct{}{}
-		}
-
-		var added, removed, kept, finalModels []string
-		for m := range origMap {
-			if _, exists := targetModelsMap[m]; exists {
-				kept = append(kept, m)
-			} else {
-				removed = append(removed, m)
-			}
-		}
-
-		for m := range targetModelsMap {
-			if _, exists := origMap[m]; !exists {
-				added = append(added, m)
-			}
-		}
-
-		if req.Mode == "replace" {
-			finalModels = probeRes.Models
-		} else {
-			finalSet := make(map[string]struct{})
-			for _, m := range info.Models {
-				finalSet[m] = struct{}{}
-			}
-			for _, m := range probeRes.Models {
-				finalSet[m] = struct{}{}
-			}
-			for m := range finalSet {
-				finalModels = append(finalModels, m)
-			}
-		}
-
-		sort.Strings(finalModels)
-
-		diff := &CpaSyncDiffResult{
-			ChannelId:   chId,
-			ChannelName: info.Name,
-			Original:    info.Models,
-			Target:      finalModels,
-			Added:       added,
-			Removed:     removed,
-			Kept:        kept,
-			Applied:     false,
-		}
-
-		if req.Apply {
-			channel, err := model.GetChannelById(chId, true)
-			if err != nil {
-				diff.ErrorMessage = "获取渠道失败: " + err.Error()
-			} else {
-				channel.Models = strings.Join(finalModels, ",")
-				if err := model.DB.Model(&model.Channel{}).Where("id = ?", chId).Update("models", channel.Models).Error; err != nil {
-					diff.ErrorMessage = "更新渠道模型失败: " + err.Error()
-				} else {
-					_ = channel.UpdateAbilities(nil)
-					diff.Applied = true
-				}
-			}
-		}
-
-		diffs = append(diffs, diff)
-	}
-
-	if req.Apply {
-		refreshChannelRuntimeCache()
-		recordManageAudit(c, "cpa_node.sync_models", map[string]any{
-			"node_id": node.Id,
-			"mode":    req.Mode,
-			"count":   len(req.ChannelIds),
-		})
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-		"data":    diffs,
 	})
 }
 

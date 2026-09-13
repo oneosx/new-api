@@ -33,7 +33,6 @@ import {
   probeCpaNode,
   createCpaNode,
   updateCpaNode,
-  syncCpaModels,
   resetCodexCredentialQuota,
   refreshSingleCpaCredential,
 } from './api'
@@ -46,10 +45,8 @@ export function CpaNodes() {
   const [selectedNodeForEdit, setSelectedNodeForEdit] = useState<CpaNodeItem | null>(null)
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false)
   const [selectedNodeForDelete, setSelectedNodeForDelete] = useState<CpaNodeItem | null>(null)
-  const [selectedNodeForSync, setSelectedNodeForSync] = useState<CpaNodeItem | null>(null)
   const [selectedCodexReset, setSelectedCodexReset] = useState<{ nodeId: number; file: CpaAuthFileInfo } | null>(null)
-  const [syncMode, setSyncMode] = useState<'merge' | 'replace'>('merge')
-  const [confirmReplace, setConfirmReplace] = useState(false)
+  const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({})
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({})
 
   // Form State
@@ -145,26 +142,6 @@ export function CpaNodes() {
     },
   })
 
-  const syncMutation = useMutation({
-    mutationFn: async (node: CpaNodeItem) => {
-      const channelIds = (node.channels || []).map((c) => c.id)
-      return syncCpaModels(node.id, {
-        channel_ids: channelIds,
-        mode: syncMode,
-        apply: true,
-        confirm_replace: syncMode === 'replace' ? confirmReplace : false,
-      })
-    },
-    onSuccess: (res) => {
-      const appliedCount = res.filter((r) => r.applied).length
-      toast.success(t('Synchronized {{count}} channels successfully', { count: appliedCount }))
-      queryClient.invalidateQueries({ queryKey: ['cpa-nodes'] })
-      setSelectedNodeForSync(null)
-    },
-    onError: (err: any) => {
-      toast.error(err?.message || t('Sync failed'))
-    },
-  })
 
   const toggleExpand = (nodeId: number) => {
     setExpandedNodes((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }))
@@ -539,62 +516,6 @@ export function CpaNodes() {
         />
       )}
 
-      {/* Sync Models Dialog */}
-      {selectedNodeForSync && (
-        <ConfirmDialog
-          open={!!selectedNodeForSync}
-          onOpenChange={(open) => !open && setSelectedNodeForSync(null)}
-          title={t('Sync Models to Channels')}
-          desc={
-            <div className="space-y-4 py-2">
-              <p>
-                {t('Sync models detected from {{name}} ({{count}} models) to {{chCount}} channels.', {
-                  name: selectedNodeForSync.name,
-                  count: selectedNodeForSync.model_count,
-                  chCount: selectedNodeForSync.channel_count,
-                })}
-              </p>
-              <div className="space-y-2">
-                <label className="text-xs font-medium">{t('Sync Mode')}</label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                    <input
-                      type="radio"
-                      name="syncMode"
-                      value="merge"
-                      checked={syncMode === 'merge'}
-                      onChange={() => setSyncMode('merge')}
-                    />
-                    <span>{t('Merge (Union)')}</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                    <input
-                      type="radio"
-                      name="syncMode"
-                      value="replace"
-                      checked={syncMode === 'replace'}
-                      onChange={() => setSyncMode('replace')}
-                    />
-                    <span className="text-destructive font-medium">{t('Replace (Overwrite)')}</span>
-                  </label>
-                </div>
-              </div>
-              {syncMode === 'replace' && (
-                <label className="flex items-center gap-2 text-xs text-destructive border border-destructive/20 p-2 rounded bg-destructive/5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={confirmReplace}
-                    onChange={(e) => setConfirmReplace(e.target.checked)}
-                  />
-                  <span>{t('I confirm that existing channel models will be fully replaced')}</span>
-                </label>
-              )}
-            </div>
-          }
-          handleConfirm={() => selectedNodeForSync && syncMutation.mutate(selectedNodeForSync)}
-          isLoading={syncMutation.isPending}
-        />
-      )}
 
       {/* Edit / Create Dialog */}
       {isEditDrawerOpen && (
@@ -703,10 +624,10 @@ function CPAMCCredentialCard({
 
   // Real-time Codex data from WHAM API, fallback to signals
   const codexDetail = file.codex_detail
-  const codexPrimaryUsed = codexDetail?.primaryWindow?.UsedPercent ?? signals['X-Codex-Primary-Used-Percent']
-  const codexSecondaryUsed = codexDetail?.secondaryWindow?.UsedPercent ?? signals['X-Codex-Secondary-Used-Percent']
-  const codexPrimaryReset = codexDetail?.primaryWindow?.ResetAfter ?? formatResetSeconds(signals['X-Codex-Primary-Reset-After-Seconds'])
-  const codexSecondaryReset = codexDetail?.secondaryWindow?.ResetAfter ?? formatResetSeconds(signals['X-Codex-Secondary-Reset-After-Seconds'])
+  const codexPrimaryUsed = codexDetail?.primary_window?.used_percent ?? signals['X-Codex-Primary-Used-Percent']
+  const codexSecondaryUsed = codexDetail?.secondary_window?.used_percent ?? signals['X-Codex-Secondary-Used-Percent']
+  const codexPrimaryReset = codexDetail?.primary_window?.reset_after ?? formatResetSeconds(signals['X-Codex-Primary-Reset-After-Seconds'])
+  const codexSecondaryReset = codexDetail?.secondary_window?.reset_after ?? formatResetSeconds(signals['X-Codex-Secondary-Reset-After-Seconds'])
   const planType = codexDetail?.plan_type || file.plan_type || signals['X-Codex-Plan-Type']
 
   // Real-time xAI data from Billing API
@@ -746,7 +667,7 @@ function CPAMCCredentialCard({
         <div>
           {t('Plan')}:{' '}
           <span className="font-bold text-foreground uppercase">
-            {planType || (provider === 'antigravity' ? 'Pro' : provider === 'xai' ? 'SuperGrok' : 'Free')}
+            {planType || '--'}
           </span>
         </div>
         {file.subscription_to && (
@@ -804,66 +725,31 @@ function CPAMCCredentialCard({
 
       {/* 2. Antigravity Provider */}
       {provider === 'antigravity' && (
-        <div className="space-y-2 pt-1">
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase">
-            GEMINI {t('Models')}
-          </div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-muted-foreground">{t('Five Hour Limit Remaining')}</span>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                {t('Remaining')} 74%
-              </span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500" style={{ width: '74%' }} />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-muted-foreground">{t('Weekly Limit Remaining')}</span>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                {t('Remaining')} 81%
-              </span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500" style={{ width: '81%' }} />
-            </div>
-          </div>
+        <div className="py-2 text-[11px] text-muted-foreground">
+          {t('Quota data is unavailable until CPA returns a supported quota summary')}
         </div>
       )}
 
       {/* 3. xAI Provider */}
       {provider === 'xai' && (
         <div className="space-y-2 pt-1">
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-muted-foreground">{t('Weekly Limit')}</span>
-              <span className="font-semibold text-destructive">
-                {t('Used')} {xaiDetail?.weekly_used_percent ?? 89}%
-              </span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-destructive"
-                style={{ width: `${xaiDetail?.weekly_used_percent ?? 89}%` }}
+          {xaiDetail ? (
+            <>
+              <QuotaProgress
+                label={t('Weekly Limit')}
+                used={xaiDetail.weekly_used_percent}
+                resetAfter={xaiDetail.weekly_reset_after}
               />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="flex justify-between text-[11px]">
-              <span className="text-muted-foreground">GrokBuild {t('Usage')}</span>
-              <span className="font-semibold text-destructive">
-                {t('Used')} {xaiDetail?.grok_build_used ?? 89}%
-              </span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-destructive"
-                style={{ width: `${xaiDetail?.grok_build_used ?? 89}%` }}
+              <QuotaProgress
+                label={`GrokBuild ${t('Usage')}`}
+                used={xaiDetail.grok_build_used}
               />
+            </>
+          ) : (
+            <div className="py-2 text-[11px] text-muted-foreground">
+              {t('Quota data is unavailable until CPA returns a supported quota summary')}
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -907,6 +793,34 @@ function CPAMCCredentialCard({
             {file.failed || 0}
           </b>
         </span>
+      </div>
+    </div>
+  )
+}
+
+function QuotaProgress({
+  label,
+  used,
+  resetAfter,
+}: {
+  label: string
+  used: number
+  resetAfter?: string
+}) {
+  const normalizedUsed = Math.max(0, Math.min(100, used))
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-[11px]">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={`font-semibold ${normalizedUsed >= 90 ? 'text-destructive' : 'text-foreground'}`}>
+          {normalizedUsed}% {resetAfter ? <span className="text-[10px] font-normal text-muted-foreground">({resetAfter})</span> : null}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className={normalizedUsed >= 90 ? 'h-full bg-destructive' : 'h-full bg-emerald-500'}
+          style={{ width: `${normalizedUsed}%` }}
+        />
       </div>
     </div>
   )
