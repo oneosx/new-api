@@ -15,7 +15,6 @@ import {
   Layers,
   Search,
   Shield,
-  ExternalLink,
   ChevronDown,
   ChevronUp,
   RotateCcw,
@@ -36,7 +35,7 @@ import {
   resetCodexCredentialQuota,
   refreshSingleCpaCredential,
 } from './api'
-import { CpaNodeItem, CpaAuthFileInfo } from './types'
+import type { CpaNodeItem, CpaAuthFileInfo } from './types'
 
 export function CpaNodes() {
   const { t } = useTranslation()
@@ -46,7 +45,6 @@ export function CpaNodes() {
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false)
   const [selectedNodeForDelete, setSelectedNodeForDelete] = useState<CpaNodeItem | null>(null)
   const [selectedCodexReset, setSelectedCodexReset] = useState<{ nodeId: number; file: CpaAuthFileInfo } | null>(null)
-  const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({})
   const [expandedNodes, setExpandedNodes] = useState<Record<number, boolean>>({})
 
   // Form State
@@ -807,7 +805,7 @@ function QuotaProgress({
   used: number
   resetAfter?: string
 }) {
-  const normalizedUsed = Math.max(0, Math.min(100, used))
+  const normalizedUsed = Number.isFinite(used) ? Math.max(0, Math.min(100, used)) : 0
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-[11px]">

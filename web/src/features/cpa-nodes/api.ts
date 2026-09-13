@@ -1,5 +1,5 @@
 import { api } from '@/lib/api'
-import { CpaNodeItem, CpaNodesResponse, CpaAuthFileInfo } from './types'
+import type { CpaNodeItem, CpaNodesResponse, CpaAuthFileInfo } from './types'
 
 export async function fetchCpaNodes(window = 'today', fresh = false): Promise<CpaNodesResponse> {
   const res = await api.get<{ success: boolean; message?: string; data: CpaNodesResponse }>('/api/cpa-node', {
