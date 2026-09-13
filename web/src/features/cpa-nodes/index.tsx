@@ -26,6 +26,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { toast } from 'sonner'
 import { formatQuotaWithCurrency } from '@/lib/currency'
+import { StatusBadge } from '@/components/status-badge'
+import { CopyButton } from '@/components/copy-button'
 import {
   fetchCpaNodes,
   deleteCpaNode,
@@ -206,51 +208,58 @@ export function CpaNodes() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-primary/10 p-2 text-primary">
+      {/* KPI Cards (Aligned with Solarized System Overview) */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Card className="relative overflow-hidden border-border/70 bg-card/75 backdrop-blur-sm shadow-sm transition-all hover:border-primary/40">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">{t('Total Nodes')}</p>
+              <p className="text-2xl font-bold tracking-tight text-foreground font-mono">{summary.total}</p>
+            </div>
+            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
               <Server className="h-5 w-5" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">{t('Total Nodes')}</p>
-              <p className="text-xl font-bold">{summary.total}</p>
-            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-500">
-              <Activity className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">{t('Online Nodes')}</p>
-              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                {summary.online} / {summary.total}
+
+        <Card className="relative overflow-hidden border-border/70 bg-card/75 backdrop-blur-sm shadow-sm transition-all hover:border-success/40">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">{t('Online Nodes')}</p>
+              <p className="text-2xl font-bold tracking-tight text-success font-mono">
+                {summary.online} <span className="text-xs font-normal text-muted-foreground">/ {summary.total}</span>
               </p>
             </div>
+            <div className="rounded-xl bg-success/10 p-2.5 text-success">
+              <Activity className="h-5 w-5" />
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-blue-500/10 p-2 text-blue-500">
+
+        <Card className="relative overflow-hidden border-border/70 bg-card/75 backdrop-blur-sm shadow-sm transition-all hover:border-chart-1/40">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">{t('Today Requests')}</p>
+              <p className="text-2xl font-bold tracking-tight text-foreground font-mono">
+                {summary.total_requests.toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-xl bg-chart-1/10 p-2.5 text-chart-1">
               <Zap className="h-5 w-5" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">{t('Today Requests')}</p>
-              <p className="text-xl font-bold">{summary.total_requests.toLocaleString()}</p>
-            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-500">
-              <Layers className="h-5 w-5" />
+
+        <Card className="relative overflow-hidden border-border/70 bg-card/75 backdrop-blur-sm shadow-sm transition-all hover:border-warning/40">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground">{t('Today Consumption')}</p>
+              <p className="text-2xl font-bold tracking-tight text-foreground font-mono">
+                {formatQuotaWithCurrency(summary.total_quota)}
+              </p>
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">{t('Today Consumption')}</p>
-              <p className="text-xl font-bold">{formatQuotaWithCurrency(summary.total_quota)}</p>
+            <div className="rounded-xl bg-warning/10 p-2.5 text-warning">
+              <Layers className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
@@ -305,24 +314,27 @@ export function CpaNodes() {
                         </Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                      <span className="truncate max-w-[320px]" title={node.base_url}>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                      <span className="font-mono truncate max-w-[320px]" title={node.base_url}>
                         {node.base_url}
                       </span>
+                      <CopyButton value={node.base_url} className="h-5 w-5" />
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     {isOnline ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {node.latency}ms
-                      </span>
+                      <StatusBadge
+                        variant="success"
+                        label={`${node.latency}ms`}
+                        size="sm"
+                      />
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-destructive bg-destructive/10 px-2.5 py-1 rounded-full">
-                        <XCircle className="h-3.5 w-3.5" />
-                        {t('Offline')}
-                      </span>
+                      <StatusBadge
+                        variant="danger"
+                        label={t('Offline')}
+                        size="sm"
+                      />
                     )}
                   </div>
                 </div>
@@ -649,22 +661,11 @@ function CPAMCCredentialCard({
             {file.name || file.email || file.account}
           </span>
         </div>
-        <span
-          className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase ${
-            file.disabled
-              ? 'bg-muted text-muted-foreground'
-              : file.status === 'error'
-                ? 'bg-destructive/15 text-destructive'
-                : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-          }`}
-        >
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              file.disabled ? 'bg-muted-foreground' : file.status === 'error' ? 'bg-destructive' : 'bg-emerald-500'
-            }`}
-          />
-          {file.disabled ? 'Disabled' : file.status === 'error' ? 'Error' : 'Active'}
-        </span>
+        <StatusBadge
+          variant={file.disabled ? 'neutral' : file.status === 'error' ? 'danger' : 'success'}
+          label={file.disabled ? 'Disabled' : file.status === 'error' ? 'Error' : 'Active'}
+          size="sm"
+        />
       </div>
 
       {/* Plan / Tier Chip */}
@@ -824,32 +825,32 @@ function QuotaProgress({
   resetAfter?: string
 }) {
   const normalizedRemaining = Number.isFinite(remaining) ? Math.max(0, Math.min(100, remaining)) : 0
-  // 1:1 CPAMC QuotaMeter: ≥70 绿 / ≥30 琥珀 / <30 危险红
-  const colorClass =
+  // 语义化状态配色：与全局 Solarized Token 对齐 (Success / Warning / Destructive)
+  const barColor =
     normalizedRemaining >= 70
-      ? 'bg-emerald-500'
+      ? 'bg-success'
       : normalizedRemaining >= 30
-        ? 'bg-amber-500'
+        ? 'bg-warning'
         : 'bg-destructive'
-  const textColorClass =
+  const textColor =
     normalizedRemaining < 30
       ? 'text-destructive'
       : normalizedRemaining < 70
-        ? 'text-amber-600 dark:text-amber-400'
-        : 'text-emerald-600 dark:text-emerald-400'
+        ? 'text-warning'
+        : 'text-success'
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       <div className="flex justify-between text-[11px]">
-        <span className="text-muted-foreground">{label}</span>
-        <span className={`font-semibold ${textColorClass}`}>
+        <span className="text-muted-foreground font-medium">{label}</span>
+        <span className={`font-mono font-semibold ${textColor}`}>
           {usedLabel || `剩余 ${normalizedRemaining}%`}{' '}
-          {resetAfter ? <span className="text-[10px] font-normal text-muted-foreground">({resetAfter})</span> : null}
+          {resetAfter ? <span className="text-[10px] font-normal text-muted-foreground ml-1">({resetAfter})</span> : null}
         </span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
         <div
-          className={`h-full ${colorClass}`}
+          className={`h-full rounded-full transition-all duration-300 ${barColor}`}
           style={{ width: `${normalizedRemaining}%` }}
         />
       </div>
