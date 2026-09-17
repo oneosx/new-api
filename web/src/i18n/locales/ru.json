@@ -248,6 +248,7 @@
     "Refresh single credential quota": "Refresh single credential quota",
     "Credential quota refreshed": "Credential quota refreshed",
     "Consume 1 reset credit to reset 5-hour and weekly limits": "Consume 1 reset credit to reset 5-hour and weekly limits",
+    "No reset credits remaining": "No reset credits remaining",
     "Add a new channel by providing the necessary information.": "Добавьте новый канал, предоставив необходимую информацию.",
     "Add a new model to the system by providing the necessary information.": "Добавьте новую модель в систему, предоставив необходимую информацию.",
     "Add a new user by providing necessary info.": "Добавьте нового пользователя, предоставив необходимую информацию.",

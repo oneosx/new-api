@@ -248,6 +248,7 @@
     "Refresh single credential quota": "Refresh single credential quota",
     "Credential quota refreshed": "Credential quota refreshed",
     "Consume 1 reset credit to reset 5-hour and weekly limits": "Consume 1 reset credit to reset 5-hour and weekly limits",
+    "No reset credits remaining": "No reset credits remaining",
     "Add a new channel by providing the necessary information.": "透過提供必要資訊新增渠道。",
     "Add a new model to the system by providing the necessary information.": "透過提供必要資訊向系統新增模型。",
     "Add a new user by providing necessary info.": "透過提供必要資訊新增用戶。",

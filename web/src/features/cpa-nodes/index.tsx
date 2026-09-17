@@ -636,6 +636,10 @@ function CPAMCCredentialCard({
   const codexSecondaryUsed = codexDetail?.secondary_window?.used_percent ?? signals['X-Codex-Secondary-Used-Percent']
   const codexPrimaryReset = codexDetail?.primary_window?.reset_after ?? formatResetSeconds(signals['X-Codex-Primary-Reset-After-Seconds'])
   const codexSecondaryReset = codexDetail?.secondary_window?.reset_after ?? formatResetSeconds(signals['X-Codex-Secondary-Reset-After-Seconds'])
+  // Reset credits gate the "Reset Quota" action: consuming one with none left
+  // always fails upstream, so the button is shown only when credits remain.
+  const availableResetCredits = codexDetail?.available_reset_credits
+  const canResetCodex = provider === 'codex' && (availableResetCredits ?? 0) > 0
   const antigravityDetail = file.antigravity_detail
   const displayPlanType = antigravityDetail?.plan || codexDetail?.plan_type || file.plan_type || signals['X-Codex-Plan-Type']
   const planType = codexDetail?.plan_type || file.plan_type || signals['X-Codex-Plan-Type']
@@ -783,12 +787,20 @@ function CPAMCCredentialCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-6 text-[11px] px-2 gap-1 border-primary/40 hover:bg-primary/10 text-primary font-medium shadow-none"
+                className="h-6 text-[11px] px-2 gap-1 border-primary/40 hover:bg-primary/10 text-primary font-medium shadow-none disabled:border-border disabled:text-muted-foreground disabled:hover:bg-transparent"
                 onClick={onResetCodex}
-                title={t('Consume 1 reset credit to reset 5-hour and weekly limits')}
+                disabled={!canResetCodex}
+                title={
+                  canResetCodex
+                    ? t('Consume 1 reset credit to reset 5-hour and weekly limits')
+                    : t('No reset credits remaining')
+                }
               >
                 <RotateCcw className="h-3 w-3" />
                 {t('Reset Quota')}
+                {typeof availableResetCredits === 'number' && (
+                  <span className="ml-0.5 tabular-nums">({availableResetCredits})</span>
+                )}
               </Button>
             )}
             {onRefreshSingle && (

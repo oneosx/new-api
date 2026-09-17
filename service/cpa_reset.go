@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -152,12 +153,13 @@ func ResetCodexAuthFileQuota(ctx context.Context, node *model.CpaNode, authFileI
 	if err != nil {
 		return nil, fmt.Errorf("failed to read reset-credit precheck: %w", err)
 	}
-	type resetCreditResp struct {
-		AvailableCount int `json:"available_count"`
-	}
+	// The management API may return `body` as a JSON *string* (a re-encoded upstream
+	// payload) or as an object. Decode both: try the object first, then a string that
+	// itself carries the JSON. Guarding only the object shape made every reset fail with
+	// "cannot unmarshal string into Go struct field .body" on nodes that stringify it.
 	var precheckApiRes struct {
 		StatusCode int             `json:"status_code"`
-		Body       resetCreditResp `json:"body"`
+		Body       json.RawMessage `json:"body"`
 	}
 	if err := common.Unmarshal(callRespBytes, &precheckApiRes); err != nil {
 		return nil, fmt.Errorf("invalid reset-credit precheck response: %w", err)
@@ -165,7 +167,19 @@ func ResetCodexAuthFileQuota(ctx context.Context, node *model.CpaNode, authFileI
 	if precheckApiRes.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("reset-credit precheck upstream returned HTTP %d", precheckApiRes.StatusCode)
 	}
-	if precheckApiRes.Body.AvailableCount <= 0 {
+	bodyBytes := precheckApiRes.Body
+	var bodyAsString string
+	if err := common.Unmarshal(bodyBytes, &bodyAsString); err == nil {
+		bodyBytes = []byte(bodyAsString)
+	}
+	type resetCreditResp struct {
+		AvailableCount int `json:"available_count"`
+	}
+	var precheckBody resetCreditResp
+	if err := common.Unmarshal(bodyBytes, &precheckBody); err != nil {
+		return nil, fmt.Errorf("invalid reset-credit precheck body: %w", err)
+	}
+	if precheckBody.AvailableCount <= 0 {
 		return nil, fmt.Errorf("no rate limit reset credits available for this account")
 	}
 
