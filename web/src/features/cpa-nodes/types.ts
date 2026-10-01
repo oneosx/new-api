@@ -41,6 +41,19 @@ export interface AntigravityQuotaDetailedInfo {
   groups?: AntigravityQuotaGroup[]
 }
 
+export interface ClaudeQuotaWindowInfo {
+  id: string
+  label: string
+  used_percent: number
+  remaining_percent: number
+  reset_after?: string
+}
+
+export interface ClaudeQuotaDetailedInfo {
+  plan_type?: string
+  windows?: ClaudeQuotaWindowInfo[]
+}
+
 export interface CpaAuthFileInfo {
   id: string
   name: string
@@ -60,6 +73,7 @@ export interface CpaAuthFileInfo {
   codex_detail?: CodexQuotaDetailedInfo
   xai_detail?: XaiQuotaDetailedInfo
   antigravity_detail?: AntigravityQuotaDetailedInfo
+  claude_detail?: ClaudeQuotaDetailedInfo
 }
 
 export interface CpaNodeChannelInfo {

@@ -641,7 +641,8 @@ function CPAMCCredentialCard({
   const availableResetCredits = codexDetail?.available_reset_credits
   const canResetCodex = provider === 'codex' && (availableResetCredits ?? 0) > 0
   const antigravityDetail = file.antigravity_detail
-  const displayPlanType = antigravityDetail?.plan || codexDetail?.plan_type || file.plan_type || signals['X-Codex-Plan-Type']
+  const claudeDetail = file.claude_detail
+  const displayPlanType = claudeDetail?.plan_type || antigravityDetail?.plan || codexDetail?.plan_type || file.plan_type || signals['X-Codex-Plan-Type']
   const planType = codexDetail?.plan_type || file.plan_type || signals['X-Codex-Plan-Type']
 
   // Real-time xAI data from Billing API
@@ -758,6 +759,26 @@ function CPAMCCredentialCard({
                 remaining={xaiDetail.grok_build_remaining ?? Math.max(0, 100 - xaiDetail.grok_build_used)}
               />
             </>
+          ) : (
+            <div className="py-2 text-[11px] text-muted-foreground">
+              {t('Quota data is unavailable until CPA returns a supported quota summary')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4. Claude Provider */}
+      {provider === 'claude' && (
+        <div className="space-y-2 pt-1">
+          {claudeDetail?.windows && claudeDetail.windows.length > 0 ? (
+            claudeDetail.windows.map((win) => (
+              <QuotaProgress
+                key={win.id}
+                label={t(win.label)}
+                remaining={win.remaining_percent}
+                resetAfter={win.reset_after}
+              />
+            ))
           ) : (
             <div className="py-2 text-[11px] text-muted-foreground">
               {t('Quota data is unavailable until CPA returns a supported quota summary')}

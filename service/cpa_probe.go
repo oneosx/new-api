@@ -58,6 +58,19 @@ type AntigravityQuotaDetailedInfo struct {
 	Groups []AntigravityQuotaGroup `json:"groups,omitempty"`
 }
 
+type ClaudeQuotaWindowInfo struct {
+	Id               string `json:"id"`
+	Label            string `json:"label"`
+	UsedPercent      int    `json:"used_percent"`
+	RemainingPercent int    `json:"remaining_percent"`
+	ResetAfter       string `json:"reset_after,omitempty"`
+}
+
+type ClaudeQuotaDetailedInfo struct {
+	PlanType string                   `json:"plan_type,omitempty"`
+	Windows  []*ClaudeQuotaWindowInfo `json:"windows,omitempty"`
+}
+
 type CpaAuthFileInfo struct {
 	Id             string         `json:"id"`
 	Name           string         `json:"name"`
@@ -79,6 +92,7 @@ type CpaAuthFileInfo struct {
 	CodexDetail       *CodexQuotaDetailedInfo       `json:"codex_detail,omitempty"`
 	XaiDetail         *XaiQuotaDetailedInfo         `json:"xai_detail,omitempty"`
 	AntigravityDetail *AntigravityQuotaDetailedInfo `json:"antigravity_detail,omitempty"`
+	ClaudeDetail      *ClaudeQuotaDetailedInfo      `json:"claude_detail,omitempty"`
 }
 
 type CpaProbeResult struct {
@@ -305,6 +319,16 @@ func ProbeCpaNode(ctx context.Context, node *model.CpaNode) (*CpaProbeResult, er
 								}
 							}
 
+							// 4. Fetch real-time Claude details if applicable
+							if (providerLower == "claude" || typeLower == "claude") && f.AuthIndex != "" {
+								if claudeDetail := fetchClaudeRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex); claudeDetail != nil {
+									info.ClaudeDetail = claudeDetail
+									if claudeDetail.PlanType != "" {
+										info.PlanType = claudeDetail.PlanType
+									}
+								}
+							}
+
 							quotaCancel()
 							authFilesList = append(authFilesList, info)
 						}
@@ -440,6 +464,11 @@ func RefreshSingleAuthFileQuota(ctx context.Context, node *model.CpaNode, authFi
 		targetFile.XaiDetail = fetchXaiRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, targetRaw.AuthIndex)
 	} else if targetRaw.Provider == "antigravity" && targetRaw.AuthIndex != "" {
 		targetFile.AntigravityDetail = fetchAntigravityRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, targetRaw.AuthIndex, targetRaw.ProjectId)
+	} else if targetRaw.Provider == "claude" && targetRaw.AuthIndex != "" {
+		targetFile.ClaudeDetail = fetchClaudeRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, targetRaw.AuthIndex)
+		if targetFile.ClaudeDetail != nil && targetFile.ClaudeDetail.PlanType != "" {
+			targetFile.PlanType = targetFile.ClaudeDetail.PlanType
+		}
 	}
 
 	return targetFile, nil
@@ -684,6 +713,120 @@ func fetchAntigravityRealtimeQuota(ctx context.Context, client *http.Client, bas
 	return &AntigravityQuotaDetailedInfo{
 		Plan:   plan,
 		Groups: groups,
+	}
+}
+
+func fetchClaudeRealtimeQuota(ctx context.Context, client *http.Client, baseURL, apiKey, authIndex string) *ClaudeQuotaDetailedInfo {
+	header := map[string]string{
+		"Authorization":  "Bearer $TOKEN$",
+		"Content-Type":   "application/json",
+		"anthropic-beta": "oauth-2025-04-20",
+	}
+
+	// 1. Fetch Profile for plan type
+	planType := "pro"
+	scProf, profBytes, errProf := executeCpaManagementApiCall(
+		ctx, client, baseURL, apiKey, authIndex,
+		http.MethodGet, "https://api.anthropic.com/api/oauth/profile",
+		header, "",
+	)
+	if errProf == nil && scProf == http.StatusOK {
+		var prof struct {
+			Account struct {
+				HasClaudeMax bool `json:"has_claude_max"`
+				HasClaudePro bool `json:"has_claude_pro"`
+			} `json:"account"`
+			Organization struct {
+				OrganizationType   string `json:"organization_type"`
+				SubscriptionStatus string `json:"subscription_status"`
+			} `json:"organization"`
+		}
+		if err := common.Unmarshal(profBytes, &prof); err == nil {
+			orgType := strings.ToLower(prof.Organization.OrganizationType)
+			subStatus := strings.ToLower(prof.Organization.SubscriptionStatus)
+			if orgType == "claude_team" && subStatus == "active" {
+				planType = "team"
+			} else if prof.Account.HasClaudeMax {
+				planType = "max"
+			} else if prof.Account.HasClaudePro {
+				planType = "pro"
+			} else if !prof.Account.HasClaudeMax && !prof.Account.HasClaudePro {
+				planType = "free"
+			}
+		}
+	}
+
+	// 2. Fetch Usage for rate limits
+	scUsage, usageBytes, errUsage := executeCpaManagementApiCall(
+		ctx, client, baseURL, apiKey, authIndex,
+		http.MethodGet, "https://api.anthropic.com/api/oauth/usage",
+		header, "",
+	)
+	if errUsage != nil || scUsage != http.StatusOK {
+		return &ClaudeQuotaDetailedInfo{PlanType: planType}
+	}
+
+	type claudeWindow struct {
+		Utilization float64 `json:"utilization"`
+		ResetsAt    *string `json:"resets_at"`
+	}
+
+	var usage struct {
+		FiveHour          *claudeWindow `json:"five_hour"`
+		SevenDay          *claudeWindow `json:"seven_day"`
+		SevenDayOpus      *claudeWindow `json:"seven_day_opus"`
+		SevenDaySonnet    *claudeWindow `json:"seven_day_sonnet"`
+		SevenDayCowork    *claudeWindow `json:"seven_day_cowork"`
+		SevenDayOauthApps *claudeWindow `json:"seven_day_oauth_apps"`
+		IguanaNecktie     *claudeWindow `json:"iguana_necktie"`
+	}
+	if err := common.Unmarshal(usageBytes, &usage); err != nil {
+		return &ClaudeQuotaDetailedInfo{PlanType: planType}
+	}
+
+	var windows []*ClaudeQuotaWindowInfo
+	addWindow := func(id, label string, w *claudeWindow) {
+		if w == nil {
+			return
+		}
+		usedPercent := int(math.Round(w.Utilization * 100))
+		if usedPercent < 0 {
+			usedPercent = 0
+		} else if usedPercent > 100 {
+			usedPercent = 100
+		}
+		remPercent := 100 - usedPercent
+
+		resetFormatted := ""
+		if w.ResetsAt != nil && *w.ResetsAt != "" {
+			if t, err := time.Parse(time.RFC3339, *w.ResetsAt); err == nil {
+				dur := time.Until(t)
+				if dur > 0 {
+					resetFormatted = formatSecondsToFriendly(int(dur.Seconds()))
+				}
+			}
+		}
+
+		windows = append(windows, &ClaudeQuotaWindowInfo{
+			Id:               id,
+			Label:            label,
+			UsedPercent:      usedPercent,
+			RemainingPercent: remPercent,
+			ResetAfter:       resetFormatted,
+		})
+	}
+
+	addWindow("five-hour", "5 Hour Limit", usage.FiveHour)
+	addWindow("seven-day", "Weekly Limit", usage.SevenDay)
+	addWindow("seven-day-sonnet", "Sonnet Weekly Limit", usage.SevenDaySonnet)
+	addWindow("seven-day-opus", "Opus Weekly Limit", usage.SevenDayOpus)
+	addWindow("seven-day-fable", "Fable Weekly Limit", usage.IguanaNecktie)
+	addWindow("seven-day-cowork", "Cowork Weekly Limit", usage.SevenDayCowork)
+	addWindow("seven-day-oauth-apps", "OAuth Apps Weekly Limit", usage.SevenDayOauthApps)
+
+	return &ClaudeQuotaDetailedInfo{
+		PlanType: planType,
+		Windows:  windows,
 	}
 }
 
