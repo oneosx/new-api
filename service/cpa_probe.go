@@ -789,7 +789,14 @@ func fetchClaudeRealtimeQuota(ctx context.Context, client *http.Client, baseURL,
 		if w == nil {
 			return
 		}
-		usedPercent := int(math.Round(w.Utilization * 100))
+		usedPercent := 0
+		if w.Utilization > 0 {
+			if w.Utilization <= 1.0 {
+				usedPercent = int(math.Round(w.Utilization * 100))
+			} else {
+				usedPercent = int(math.Round(w.Utilization))
+			}
+		}
 		if usedPercent < 0 {
 			usedPercent = 0
 		} else if usedPercent > 100 {
