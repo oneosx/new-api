@@ -28,8 +28,6 @@ import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { cn } from '@/lib/utils'
 
-import { HeaderLogo } from './header-logo'
-
 type SystemBrandProps = {
   defaultName?: string
   defaultVersion?: string
@@ -50,7 +48,7 @@ type SystemBrandProps = {
 export function SystemBrand(props: SystemBrandProps) {
   const { t } = useTranslation()
   const { status } = useStatus()
-  const { logo, loading, logoLoaded } = useSystemConfig()
+  const { logo } = useSystemConfig()
 
   const variant = props.variant ?? 'sidebar'
   const name = status?.system_name || props.defaultName || 'New API'
@@ -61,20 +59,20 @@ export function SystemBrand(props: SystemBrandProps) {
     return (
       <Link
         to='/'
-        aria-label={name || t('Go to home')}
+        aria-label={t('Go to home')}
         className={cn(
-          'text-foreground inline-flex h-7 items-center rounded-md px-1.5 text-sm font-medium transition-colors outline-none select-none',
+          'text-foreground inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 text-sm font-medium transition-colors outline-none select-none',
           'hover:bg-accent focus-visible:ring-ring/40 focus-visible:ring-2'
         )}
       >
-        <HeaderLogo
-          src={logo}
-          darkSrc='/logo.white.png'
-          alt={name}
-          loading={loading}
-          logoLoaded={logoLoaded}
-          className='h-6 max-h-6 w-auto max-w-[140px] rounded-none object-contain'
-        />
+        <div className='flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-md'>
+          <img
+            src={logo}
+            alt={t('Logo')}
+            className='size-full rounded-md object-cover'
+          />
+        </div>
+        <span className='max-w-[12rem] truncate'>{name}</span>
       </Link>
     )
   }

@@ -122,9 +122,9 @@ func RechargeWeChat(tradeNo string, wechatTransactionId string, paidCents int64,
 	if alreadyDone {
 		return true, nil
 	}
-	syncCreditUserQuotaCache(topUp.UserId, quotaToAdd, "wechat topup")
+	syncCreditUserQuotaCache(topUp.UserId, quotaToAdd, common.LogText("wechat topup"))
 	common.SysLog(fmt.Sprintf("微信支付充值成功 trade_no=%s user_id=%d quota_to_add=%d money=%.2f transaction_id=%s", topUp.TradeNo, topUp.UserId, quotaToAdd, topUp.Money, wechatTransactionId))
-	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用微信支付充值成功，充值金额: %v，支付金额：%f", logger.LogQuota(quotaToAdd), topUp.Money), callerIp, PaymentMethodWeChatJSAPI, PaymentProviderWeChat)
+	RecordTopupLog(topUp.UserId, common.NewMessage("Online top-up succeeded, amount added: {{quota}}, payment amount: {{amount}}", map[string]any{"quota": logger.FormatQuota(quotaToAdd), "amount": fmt.Sprintf("%f", topUp.Money)}), callerIp, PaymentMethodWeChatJSAPI, PaymentProviderWeChat)
 	return false, nil
 }
 
@@ -226,7 +226,7 @@ func CompleteWeChatRefund(tradeNo string, callerIp string) (alreadyDone bool, er
 		return true, nil
 	}
 	common.SysLog(fmt.Sprintf("微信支付退款成功 trade_no=%s user_id=%d quota=%d money=%.2f", topUp.TradeNo, topUp.UserId, quota, topUp.Money))
-	RecordTopupLog(topUp.UserId, fmt.Sprintf("微信支付全额退款成功，退回金额: %v，支付金额：%f", logger.LogQuota(quota), topUp.Money), callerIp, PaymentMethodWeChatJSAPI, PaymentProviderWeChat)
+	RecordTopupLog(topUp.UserId, common.NewMessage("Top-up refunded, amount refunded: {{quota}}, payment amount: {{amount}}", map[string]any{"quota": logger.FormatQuota(quota), "amount": fmt.Sprintf("%f", topUp.Money)}), callerIp, PaymentMethodWeChatJSAPI, PaymentProviderWeChat)
 	return false, nil
 }
 
