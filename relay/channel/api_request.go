@@ -59,6 +59,11 @@ func SetupApiRequestHeader(info *common.RelayInfo, c *gin.Context, req *http.Hea
 		if info.IsStream && c.Request.Header.Get("Accept") == "" {
 			req.Set("Accept", "text/event-stream")
 		}
+		if c.Request != nil && c.Request.Header.Get("User-Agent") != "" {
+			req.Set("User-Agent", c.Request.Header.Get("User-Agent"))
+		} else if req.Get("User-Agent") == "" {
+			req.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+		}
 	}
 }
 

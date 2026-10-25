@@ -40,6 +40,7 @@ import { Route as AuthenticatedCpaNodesIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as AuthenticatedIntelligenceBenchIndexRouteImport } from './routes/_authenticated/intelligence-bench/index'
 import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
 import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenticated/models/index'
 import { Route as AuthenticatedModelsSectionRouteImport } from './routes/_authenticated/models/$section'
@@ -229,6 +230,12 @@ const AuthenticatedErrorsErrorRoute =
   AuthenticatedErrorsErrorRouteImport.update({
     id: '/errors/$error',
     path: '/errors/$error',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedIntelligenceBenchIndexRoute =
+  AuthenticatedIntelligenceBenchIndexRouteImport.update({
+    id: '/intelligence-bench/',
+    path: '/intelligence-bench/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedKeysIndexRoute = AuthenticatedKeysIndexRouteImport.update({
@@ -448,6 +455,7 @@ export interface FileRoutesByFullPath {
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/cpa-nodes/': typeof AuthenticatedCpaNodesIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/intelligence-bench/': typeof AuthenticatedIntelligenceBenchIndexRoute
   '/keys/': typeof AuthenticatedKeysIndexRoute
   '/models/': typeof AuthenticatedModelsIndexRoute
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
@@ -509,6 +517,7 @@ export interface FileRoutesByTo {
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/cpa-nodes': typeof AuthenticatedCpaNodesIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/intelligence-bench': typeof AuthenticatedIntelligenceBenchIndexRoute
   '/keys': typeof AuthenticatedKeysIndexRoute
   '/models': typeof AuthenticatedModelsIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
@@ -574,6 +583,7 @@ export interface FileRoutesById {
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/cpa-nodes/': typeof AuthenticatedCpaNodesIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/_authenticated/intelligence-bench/': typeof AuthenticatedIntelligenceBenchIndexRoute
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
   '/_authenticated/models/': typeof AuthenticatedModelsIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
@@ -638,6 +648,7 @@ export interface FileRouteTypes {
     | '/channels/'
     | '/cpa-nodes/'
     | '/dashboard/'
+    | '/intelligence-bench/'
     | '/keys/'
     | '/models/'
     | '/playground/'
@@ -699,6 +710,7 @@ export interface FileRouteTypes {
     | '/channels'
     | '/cpa-nodes'
     | '/dashboard'
+    | '/intelligence-bench'
     | '/keys'
     | '/models'
     | '/playground'
@@ -763,6 +775,7 @@ export interface FileRouteTypes {
     | '/_authenticated/channels/'
     | '/_authenticated/cpa-nodes/'
     | '/_authenticated/dashboard/'
+    | '/_authenticated/intelligence-bench/'
     | '/_authenticated/keys/'
     | '/_authenticated/models/'
     | '/_authenticated/playground/'
@@ -1029,6 +1042,13 @@ declare module '@tanstack/react-router' {
       path: '/errors/$error'
       fullPath: '/errors/$error'
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/intelligence-bench/': {
+      id: '/_authenticated/intelligence-bench/'
+      path: '/intelligence-bench'
+      fullPath: '/intelligence-bench/'
+      preLoaderRoute: typeof AuthenticatedIntelligenceBenchIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/keys/': {
@@ -1346,6 +1366,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
   AuthenticatedCpaNodesIndexRoute: typeof AuthenticatedCpaNodesIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
+  AuthenticatedIntelligenceBenchIndexRoute: typeof AuthenticatedIntelligenceBenchIndexRoute
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
   AuthenticatedModelsIndexRoute: typeof AuthenticatedModelsIndexRoute
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
@@ -1373,6 +1394,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
   AuthenticatedCpaNodesIndexRoute: AuthenticatedCpaNodesIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
+  AuthenticatedIntelligenceBenchIndexRoute:
+    AuthenticatedIntelligenceBenchIndexRoute,
   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
   AuthenticatedModelsIndexRoute: AuthenticatedModelsIndexRoute,
   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,

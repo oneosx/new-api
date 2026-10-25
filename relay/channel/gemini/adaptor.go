@@ -155,6 +155,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	if info.IsStream {
 		action = "streamGenerateContent?alt=sse"
 		if info.RelayMode == constant.RelayModeGemini {
+			// 原生 Gemini 协议向下游客户端透传时禁用自定义 :PING 避免解析异常
 			info.DisablePing = true
 		}
 	}

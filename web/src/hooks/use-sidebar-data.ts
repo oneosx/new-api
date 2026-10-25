@@ -33,6 +33,7 @@ import {
   ServerCog,
   Settings,
   ShieldCheck,
+  BrainCircuit,
   Ticket,
   User,
   Users,
@@ -174,6 +175,12 @@ export function useSidebarData(): SidebarData {
             url: '/task-plugins',
             icon: PlugZap,
             requiredRole: ROLE.SUPER_ADMIN,
+          },
+          {
+            title: '降智测试',
+            url: '/intelligence-bench',
+            icon: BrainCircuit,
+            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('System Settings'),

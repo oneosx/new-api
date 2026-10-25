@@ -2,7 +2,7 @@ import { api } from '@/lib/api'
 import type { CpaNodeItem, CpaNodesResponse, CpaAuthFileInfo } from './types'
 
 export async function fetchCpaNodes(window = 'today', fresh = false): Promise<CpaNodesResponse> {
-  const res = await api.get<{ success: boolean; message?: string; data: CpaNodesResponse }>('/api/cpa-node', {
+  const res = await api.get<{ success: boolean; message?: string; data: CpaNodesResponse }>('/api/cpa-node/', {
     params: { window, fresh: fresh ? '1' : '0' },
   })
   if (!res.data?.success) {

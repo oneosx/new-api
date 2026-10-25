@@ -71,6 +71,14 @@ export function GeneralError({
             {t('If this keeps happening, please report it on GitHub Issues.')}
           </p>
         )}
+        {error ? (
+          <div className='max-w-xl p-4 bg-muted/80 rounded border text-left overflow-auto text-xs font-mono text-destructive'>
+            <div>{error instanceof Error ? error.message : String(error)}</div>
+            {error instanceof Error && error.stack ? (
+              <pre className='mt-2 whitespace-pre-wrap text-[10px] text-muted-foreground'>{error.stack}</pre>
+            ) : null}
+          </div>
+        ) : null}
         {!minimal && (
           <div className='mt-6 flex flex-wrap justify-center gap-4'>
             <Button variant='outline' onClick={() => history.go(-1)}>

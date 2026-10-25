@@ -58,6 +58,15 @@ type AntigravityQuotaDetailedInfo struct {
 	Groups []AntigravityQuotaGroup `json:"groups,omitempty"`
 }
 
+type CpaCooldownInfo struct {
+	Scope            string `json:"scope,omitempty"`
+	ModelKey         string `json:"model_key,omitempty"`
+	Reason           string `json:"reason,omitempty"`
+	RetryAt          string `json:"retry_at,omitempty"`
+	RemainingSeconds int64  `json:"remaining_seconds,omitempty"`
+	HttpStatus       int    `json:"http_status,omitempty"`
+}
+
 type ClaudeQuotaWindowInfo struct {
 	Id               string `json:"id"`
 	Label            string `json:"label"`
@@ -67,8 +76,9 @@ type ClaudeQuotaWindowInfo struct {
 }
 
 type ClaudeQuotaDetailedInfo struct {
-	PlanType string                   `json:"plan_type,omitempty"`
-	Windows  []*ClaudeQuotaWindowInfo `json:"windows,omitempty"`
+	PlanType              string                   `json:"plan_type,omitempty"`
+	Windows               []*ClaudeQuotaWindowInfo `json:"windows,omitempty"`
+	AvailableResetCredits int                      `json:"available_reset_credits,omitempty"`
 }
 
 type CpaAuthFileInfo struct {
@@ -88,6 +98,8 @@ type CpaAuthFileInfo struct {
 	Failed         int64          `json:"failed"`
 	LastRefresh    string         `json:"last_refresh,omitempty"`
 	AuthIndex      string         `json:"-"`
+	Cooldowns      []*CpaCooldownInfo `json:"cooldowns,omitempty"`
+	NextRetryAfter string             `json:"next_retry_after,omitempty"`
 	// Real-time fetched rich quotas
 	CodexDetail       *CodexQuotaDetailedInfo       `json:"codex_detail,omitempty"`
 	XaiDetail         *XaiQuotaDetailedInfo         `json:"xai_detail,omitempty"`
@@ -115,21 +127,30 @@ type openAIModelsResponse struct {
 
 type rawAuthFilesResponse struct {
 	Files []struct {
-		Id          string `json:"id"`
-		Name        string `json:"name"`
-		Provider    string `json:"provider"`
-		Type        string `json:"type"`
-		Status      string `json:"status"`
-		Disabled    bool   `json:"disabled"`
-		Email       string `json:"email"`
-		Account     string `json:"account"`
-		LastRefresh string `json:"last_refresh"`
-		AuthIndex   string `json:"auth_index"`
-		ProjectId   string `json:"project_id"`
-		ProjectID   string `json:"projectId"`
-		Success     int64  `json:"success"`
-		Failed      int64  `json:"failed"`
-		IdToken     struct {
+		Id             string `json:"id"`
+		Name           string `json:"name"`
+		Provider       string `json:"provider"`
+		Type           string `json:"type"`
+		Status         string `json:"status"`
+		Disabled       bool   `json:"disabled"`
+		Email          string `json:"email"`
+		Account        string `json:"account"`
+		LastRefresh    string `json:"last_refresh"`
+		AuthIndex      string `json:"auth_index"`
+		ProjectId      string `json:"project_id"`
+		ProjectID      string `json:"projectId"`
+		Success        int64  `json:"success"`
+		Failed         int64  `json:"failed"`
+		NextRetryAfter string `json:"next_retry_after"`
+		Cooldowns      []struct {
+			Scope            string `json:"scope"`
+			ModelKey         string `json:"model_key"`
+			Reason           string `json:"reason"`
+			RetryAt          string `json:"retry_at"`
+			RemainingSeconds int64  `json:"remaining_seconds"`
+			HttpStatus       int    `json:"http_status"`
+		} `json:"cooldowns"`
+		IdToken struct {
 			PlanType                       string `json:"plan_type"`
 			ChatgptSubscriptionActiveUntil string `json:"chatgpt_subscription_active_until"`
 		} `json:"id_token"`
@@ -247,93 +268,122 @@ func ProbeCpaNode(ctx context.Context, node *model.CpaNode) (*CpaProbeResult, er
 		}
 	}
 
-	// Fetch /v0/management/auth-files for credentials & quota
+	// Fetch /v8/management/credentials or fallback to /v0/management/auth-files for credentials & quota
 	var authFilesList []*CpaAuthFileInfo
 	authFilesFetched := false
 	if apiKey != "" {
-		authReqURL := normURL + "/v0/management/auth-files"
-		authReq, authReqErr := http.NewRequestWithContext(reqCtx, http.MethodGet, authReqURL, nil)
-		if authReqErr == nil {
-			authReq.Header.Set("Authorization", "Bearer "+apiKey)
-			authReq.Header.Set("Accept", "application/json")
-			authResp, authDoErr := client.Do(authReq)
-			if authDoErr == nil {
-				defer authResp.Body.Close()
-				if authResp.StatusCode == http.StatusOK {
-					authBody, _ := io.ReadAll(io.LimitReader(authResp.Body, 2<<20))
-					var rawAuth rawAuthFilesResponse
-					if err := common.Unmarshal(authBody, &rawAuth); err == nil {
-						authFilesFetched = true
-						for _, f := range rawAuth.Files {
-							info := &CpaAuthFileInfo{
-								Id:             f.Id,
-								Name:           f.Name,
-								Provider:       f.Provider,
-								Type:           f.Type,
-								Status:         f.Status,
-								Disabled:       f.Disabled,
-								Email:          f.Email,
-								Account:        f.Account,
-								PlanType:       f.IdToken.PlanType,
-								SubscriptionTo: f.IdToken.ChatgptSubscriptionActiveUntil,
-								QuotaSignals:   f.Quota.Signals,
-								ModelQuotas:    f.ModelQuotas,
-								Success:        f.Success,
-								Failed:         f.Failed,
-								LastRefresh:    f.LastRefresh,
-								AuthIndex:      f.AuthIndex,
-							}
+		fetchCredentials := func(endpoint string) (*rawAuthFilesResponse, int, error) {
+			reqURL := normURL + endpoint
+			req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, reqURL, nil)
+			if err != nil {
+				return nil, 0, err
+			}
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+			req.Header.Set("Accept", "application/json")
+			resp, err := client.Do(req)
+			if err != nil {
+				return nil, 0, err
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				return nil, resp.StatusCode, fmt.Errorf("HTTP %d", resp.StatusCode)
+			}
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+			var raw rawAuthFilesResponse
+			if err := common.Unmarshal(body, &raw); err != nil {
+				return nil, resp.StatusCode, err
+			}
+			return &raw, resp.StatusCode, nil
+		}
 
-							providerLower := strings.ToLower(f.Provider)
-							typeLower := strings.ToLower(f.Type)
+		rawAuth, _, err := fetchCredentials("/v8/management/credentials")
+		if err != nil || rawAuth == nil || len(rawAuth.Files) == 0 {
+			rawAuth, _, _ = fetchCredentials("/v0/management/auth-files")
+		}
 
-							quotaCtx, quotaCancel := context.WithTimeout(context.Background(), 25*time.Second)
-							quotaClient := &http.Client{Timeout: 20 * time.Second}
+		if rawAuth != nil {
+			authFilesFetched = true
+			for _, f := range rawAuth.Files {
+				var cds []*CpaCooldownInfo
+				for _, cd := range f.Cooldowns {
+					cds = append(cds, &CpaCooldownInfo{
+						Scope:            cd.Scope,
+						ModelKey:         cd.ModelKey,
+						Reason:           cd.Reason,
+						RetryAt:          cd.RetryAt,
+						RemainingSeconds: cd.RemainingSeconds,
+						HttpStatus:       cd.HttpStatus,
+					})
+				}
 
-							// 1. Fetch real-time Codex details if applicable
-							if (providerLower == "codex" || typeLower == "codex") && f.AuthIndex != "" {
-								accountID := f.Account
-								if accountID == "" && f.Email != "" {
-									accountID = f.Email
-								}
-								if detail := fetchCodexRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex, accountID); detail != nil {
-									info.CodexDetail = detail
-								}
-							}
+				info := &CpaAuthFileInfo{
+					Id:             f.Id,
+					Name:           f.Name,
+					Provider:       f.Provider,
+					Type:           f.Type,
+					Status:         f.Status,
+					Disabled:       f.Disabled,
+					Email:          f.Email,
+					Account:        f.Account,
+					PlanType:       f.IdToken.PlanType,
+					SubscriptionTo: f.IdToken.ChatgptSubscriptionActiveUntil,
+					QuotaSignals:   f.Quota.Signals,
+					ModelQuotas:    f.ModelQuotas,
+					Success:        f.Success,
+					Failed:         f.Failed,
+					LastRefresh:    f.LastRefresh,
+					AuthIndex:      f.AuthIndex,
+					Cooldowns:      cds,
+					NextRetryAfter: f.NextRetryAfter,
+				}
 
-							// 2. Fetch real-time xAI details if applicable
-							if (providerLower == "xai" || typeLower == "xai") && f.AuthIndex != "" {
-								if xaiDetail := fetchXaiRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex); xaiDetail != nil {
-									info.XaiDetail = xaiDetail
-								}
-							}
+				providerLower := strings.ToLower(f.Provider)
+				typeLower := strings.ToLower(f.Type)
 
-							// 3. Fetch real-time Antigravity details if applicable
-							if (providerLower == "antigravity" || typeLower == "antigravity") && f.AuthIndex != "" {
-								projID := f.ProjectId
-								if projID == "" {
-									projID = f.ProjectID
-								}
-								if antiDetail := fetchAntigravityRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex, projID); antiDetail != nil {
-									info.AntigravityDetail = antiDetail
-								}
-							}
+				quotaCtx, quotaCancel := context.WithTimeout(context.Background(), 25*time.Second)
+				quotaClient := &http.Client{Timeout: 20 * time.Second}
 
-							// 4. Fetch real-time Claude details if applicable
-							if (providerLower == "claude" || typeLower == "claude") && f.AuthIndex != "" {
-								if claudeDetail := fetchClaudeRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex); claudeDetail != nil {
-									info.ClaudeDetail = claudeDetail
-									if claudeDetail.PlanType != "" {
-										info.PlanType = claudeDetail.PlanType
-									}
-								}
-							}
+				// 1. Fetch real-time Codex details if applicable
+				if (providerLower == "codex" || typeLower == "codex") && f.AuthIndex != "" {
+					accountID := f.Account
+					if accountID == "" && f.Email != "" {
+						accountID = f.Email
+					}
+					if detail := fetchCodexRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex, accountID); detail != nil {
+						info.CodexDetail = detail
+					}
+				}
 
-							quotaCancel()
-							authFilesList = append(authFilesList, info)
+				// 2. Fetch real-time xAI details if applicable
+				if (providerLower == "xai" || typeLower == "xai") && f.AuthIndex != "" {
+					if xaiDetail := fetchXaiRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex); xaiDetail != nil {
+						info.XaiDetail = xaiDetail
+					}
+				}
+
+				// 3. Fetch real-time Antigravity details if applicable
+				if (providerLower == "antigravity" || typeLower == "antigravity") && f.AuthIndex != "" {
+					projID := f.ProjectId
+					if projID == "" {
+						projID = f.ProjectID
+					}
+					if antiDetail := fetchAntigravityRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex, projID); antiDetail != nil {
+						info.AntigravityDetail = antiDetail
+					}
+				}
+
+				// 4. Fetch real-time Claude details if applicable
+				if (providerLower == "claude" || typeLower == "claude") && f.AuthIndex != "" {
+					if claudeDetail := fetchClaudeRealtimeQuota(quotaCtx, quotaClient, normURL, apiKey, f.AuthIndex); claudeDetail != nil {
+						info.ClaudeDetail = claudeDetail
+						if claudeDetail.PlanType != "" {
+							info.PlanType = claudeDetail.PlanType
 						}
 					}
 				}
+
+				quotaCancel()
+				authFilesList = append(authFilesList, info)
 			}
 		}
 	}
@@ -384,25 +434,40 @@ func RefreshSingleAuthFileQuota(ctx context.Context, node *model.CpaNode, authFi
 		},
 	}
 
-	// 1. Get auth file list from node
-	authReqURL := normURL + "/v0/management/auth-files"
-	authReq, err := http.NewRequestWithContext(ctx, http.MethodGet, authReqURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	authReq.Header.Set("Authorization", "Bearer "+apiKey)
-	authReq.Header.Set("Accept", "application/json")
+	// 1. Get auth file list from node (prefer /v8/management/credentials, fallback to /v0/management/auth-files)
+	fetchCredentials := func(endpoint string) (*rawAuthFilesResponse, error) {
+		reqURL := normURL + endpoint
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Accept", "application/json")
 
-	authResp, err := client.Do(authReq)
-	if err != nil {
-		return nil, err
-	}
-	defer authResp.Body.Close()
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
 
-	authBody, _ := io.ReadAll(io.LimitReader(authResp.Body, 2<<20))
-	var rawAuth rawAuthFilesResponse
-	if err := common.Unmarshal(authBody, &rawAuth); err != nil {
-		return nil, err
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		}
+
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+		var raw rawAuthFilesResponse
+		if err := common.Unmarshal(body, &raw); err != nil {
+			return nil, err
+		}
+		return &raw, nil
+	}
+
+	rawAuth, err := fetchCredentials("/v8/management/credentials")
+	if err != nil || rawAuth == nil || len(rawAuth.Files) == 0 {
+		rawAuth, err = fetchCredentials("/v0/management/auth-files")
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch auth files: %w", err)
+		}
 	}
 
 	var targetFile *CpaAuthFileInfo
@@ -416,6 +481,18 @@ func RefreshSingleAuthFileQuota(ctx context.Context, node *model.CpaNode, authFi
 
 	for _, f := range rawAuth.Files {
 		if f.Id == authFileID || f.Name == authFileID {
+			var cds []*CpaCooldownInfo
+			for _, cd := range f.Cooldowns {
+				cds = append(cds, &CpaCooldownInfo{
+					Scope:            cd.Scope,
+					ModelKey:         cd.ModelKey,
+					Reason:           cd.Reason,
+					RetryAt:          cd.RetryAt,
+					RemainingSeconds: cd.RemainingSeconds,
+					HttpStatus:       cd.HttpStatus,
+				})
+			}
+
 			targetFile = &CpaAuthFileInfo{
 				Id:             f.Id,
 				Name:           f.Name,
@@ -433,6 +510,8 @@ func RefreshSingleAuthFileQuota(ctx context.Context, node *model.CpaNode, authFi
 				Failed:         f.Failed,
 				LastRefresh:    f.LastRefresh,
 				AuthIndex:      f.AuthIndex,
+				Cooldowns:      cds,
+				NextRetryAfter: f.NextRetryAfter,
 			}
 			targetRaw.AuthIndex = f.AuthIndex
 			targetRaw.Account = f.Account
@@ -718,6 +797,7 @@ func fetchAntigravityRealtimeQuota(ctx context.Context, client *http.Client, bas
 
 func fetchClaudeRealtimeQuota(ctx context.Context, client *http.Client, baseURL, apiKey, authIndex string) *ClaudeQuotaDetailedInfo {
 	header := map[string]string{
+		"User-Agent":     "claude-cli/2.1.280 (external, cli)",
 		"Authorization":  "Bearer $TOKEN$",
 		"Content-Type":   "application/json",
 		"anthropic-beta": "oauth-2025-04-20",
@@ -756,10 +836,10 @@ func fetchClaudeRealtimeQuota(ctx context.Context, client *http.Client, baseURL,
 		}
 	}
 
-	// 2. Fetch Usage for rate limits
+	// 2. Fetch Usage for rate limits & cedar_ember (with cedar_ember=1&skip_spend=1)
 	scUsage, usageBytes, errUsage := executeCpaManagementApiCall(
 		ctx, client, baseURL, apiKey, authIndex,
-		http.MethodGet, "https://api.anthropic.com/api/oauth/usage",
+		http.MethodGet, "https://api.anthropic.com/api/oauth/usage?cedar_ember=1&skip_spend=1",
 		header, "",
 	)
 	if errUsage != nil || scUsage != http.StatusOK {
@@ -771,6 +851,16 @@ func fetchClaudeRealtimeQuota(ctx context.Context, client *http.Client, baseURL,
 		ResetsAt    *string `json:"resets_at"`
 	}
 
+	type claudeGrant struct {
+		Id         string `json:"id"`
+		ResetsLeft int    `json:"resets_left"`
+	}
+
+	type cedarEmber struct {
+		Eligible bool          `json:"eligible"`
+		Grants   []claudeGrant `json:"grants"`
+	}
+
 	var usage struct {
 		FiveHour          *claudeWindow `json:"five_hour"`
 		SevenDay          *claudeWindow `json:"seven_day"`
@@ -779,9 +869,17 @@ func fetchClaudeRealtimeQuota(ctx context.Context, client *http.Client, baseURL,
 		SevenDayCowork    *claudeWindow `json:"seven_day_cowork"`
 		SevenDayOauthApps *claudeWindow `json:"seven_day_oauth_apps"`
 		IguanaNecktie     *claudeWindow `json:"iguana_necktie"`
+		CedarEmber        *cedarEmber   `json:"cedar_ember"`
 	}
 	if err := common.Unmarshal(usageBytes, &usage); err != nil {
 		return &ClaudeQuotaDetailedInfo{PlanType: planType}
+	}
+
+	availableResetCredits := 0
+	if usage.CedarEmber != nil {
+		for _, g := range usage.CedarEmber.Grants {
+			availableResetCredits += g.ResetsLeft
+		}
 	}
 
 	var windows []*ClaudeQuotaWindowInfo
@@ -832,14 +930,15 @@ func fetchClaudeRealtimeQuota(ctx context.Context, client *http.Client, baseURL,
 	addWindow("seven-day-oauth-apps", "OAuth Apps Weekly Limit", usage.SevenDayOauthApps)
 
 	return &ClaudeQuotaDetailedInfo{
-		PlanType: planType,
-		Windows:  windows,
+		PlanType:              planType,
+		Windows:               windows,
+		AvailableResetCredits: availableResetCredits,
 	}
 }
 
 // Helper to execute CPA management api-call and unwrap response body whether it is an object or JSON string
 func executeCpaManagementApiCall(ctx context.Context, client *http.Client, baseURL, apiKey, authIndex, method, targetURL string, headers map[string]string, data string) (int, []byte, error) {
-	callURL := strings.TrimRight(baseURL, "/") + "/v0/management/api-call"
+	normURL := strings.TrimRight(baseURL, "/")
 	reqPayload := map[string]any{
 		"authIndex": authIndex,
 		"method":    method,
@@ -854,38 +953,56 @@ func executeCpaManagementApiCall(ctx context.Context, client *http.Client, baseU
 		return 0, nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, callURL, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return 0, nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, nil, err
-	}
-	defer resp.Body.Close()
-
-	respBytes, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
-	if err != nil {
-		return resp.StatusCode, nil, err
+	callEndpoints := []string{
+		normURL + "/v8/management/requests/api-call",
+		normURL + "/v0/management/api-call",
 	}
 
-	var rawEnvelope struct {
-		StatusCode int             `json:"status_code"`
-		Body       json.RawMessage `json:"body"`
-	}
-	if err := common.Unmarshal(respBytes, &rawEnvelope); err != nil {
-		return resp.StatusCode, nil, err
+	var lastErr error
+	var lastStatus int
+
+	for _, callURL := range callEndpoints {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, callURL, bytes.NewReader(bodyBytes))
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusNotFound {
+			continue
+		}
+
+		respBytes, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+		if err != nil {
+			return resp.StatusCode, nil, err
+		}
+
+		var rawEnvelope struct {
+			StatusCode int             `json:"status_code"`
+			Body       json.RawMessage `json:"body"`
+		}
+		if err := common.Unmarshal(respBytes, &rawEnvelope); err != nil {
+			return resp.StatusCode, nil, err
+		}
+
+		bodyData := rawEnvelope.Body
+		var bodyStr string
+		if err := common.Unmarshal(bodyData, &bodyStr); err == nil {
+			return rawEnvelope.StatusCode, []byte(bodyStr), nil
+		}
+		return rawEnvelope.StatusCode, bodyData, nil
 	}
 
-	bodyData := rawEnvelope.Body
-	var bodyStr string
-	if err := common.Unmarshal(bodyData, &bodyStr); err == nil {
-		return rawEnvelope.StatusCode, []byte(bodyStr), nil
-	}
-	return rawEnvelope.StatusCode, bodyData, nil
+	return lastStatus, nil, lastErr
 }
 
 func formatSecondsToFriendly(sec int) string {

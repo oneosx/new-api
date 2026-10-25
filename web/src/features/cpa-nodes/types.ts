@@ -41,6 +41,15 @@ export interface AntigravityQuotaDetailedInfo {
   groups?: AntigravityQuotaGroup[]
 }
 
+export interface CpaCooldownInfo {
+  scope?: string
+  model_key?: string
+  reason?: string
+  retry_at?: string
+  remaining_seconds?: number
+  http_status?: number
+}
+
 export interface ClaudeQuotaWindowInfo {
   id: string
   label: string
@@ -52,6 +61,7 @@ export interface ClaudeQuotaWindowInfo {
 export interface ClaudeQuotaDetailedInfo {
   plan_type?: string
   windows?: ClaudeQuotaWindowInfo[]
+  available_reset_credits?: number
 }
 
 export interface CpaAuthFileInfo {
@@ -70,6 +80,8 @@ export interface CpaAuthFileInfo {
   success: number
   failed: number
   last_refresh?: string
+  cooldowns?: CpaCooldownInfo[]
+  next_retry_after?: string
   codex_detail?: CodexQuotaDetailedInfo
   xai_detail?: XaiQuotaDetailedInfo
   antigravity_detail?: AntigravityQuotaDetailedInfo

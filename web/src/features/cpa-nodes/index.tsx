@@ -503,7 +503,7 @@ export function CpaNodes() {
         destructive
       />
 
-      {/* Codex Reset Credit Dialog */}
+      {/* Rate Limit Reset Credit Dialog */}
       {selectedCodexReset && (
         <ConfirmDialog
           open={!!selectedCodexReset}
@@ -638,8 +638,6 @@ function CPAMCCredentialCard({
   const codexSecondaryReset = codexDetail?.secondary_window?.reset_after ?? formatResetSeconds(signals['X-Codex-Secondary-Reset-After-Seconds'])
   // Reset credits gate the "Reset Quota" action: consuming one with none left
   // always fails upstream, so the button is shown only when credits remain.
-  const availableResetCredits = codexDetail?.available_reset_credits
-  const canResetCodex = provider === 'codex' && (availableResetCredits ?? 0) > 0
   const antigravityDetail = file.antigravity_detail
   const claudeDetail = file.claude_detail
   const displayPlanType = claudeDetail?.plan_type || antigravityDetail?.plan || codexDetail?.plan_type || file.plan_type || signals['X-Codex-Plan-Type']
@@ -648,14 +646,27 @@ function CPAMCCredentialCard({
   // Real-time xAI data from Billing API
   const xaiDetail = file.xai_detail
 
+  // Available reset credits for Codex & Claude
+  const availableCodexResetCredits = codexDetail?.available_reset_credits
+  const availableClaudeResetCredits = claudeDetail?.available_reset_credits ?? (file.quota_signals?.['reset_credits'] ? Number(file.quota_signals['reset_credits']) : undefined)
+  const canResetCodex = provider === 'codex' && (availableCodexResetCredits ?? 0) > 0
+  const canResetClaude = provider === 'claude' && (availableClaudeResetCredits ?? 0) > 0
+
+  // Cooldown status calculation (defensive check)
+  const cooldownList = Array.isArray(file.cooldowns) ? file.cooldowns : []
+  const primaryCooldown = cooldownList.find(c => c && typeof c.remaining_seconds === 'number' && c.remaining_seconds > 0)
+  const remainingCooldownSec = primaryCooldown?.remaining_seconds || 0
+  const cooldownFormatted = remainingCooldownSec > 0 ? formatResetSeconds(remainingCooldownSec) : null
+
+  const displayResetCredits = provider === 'codex' ? availableCodexResetCredits : provider === 'claude' ? (availableClaudeResetCredits !== undefined ? availableClaudeResetCredits : claudeDetail ? 0 : undefined) : undefined
+
   return (
     <div className="group relative flex flex-col justify-between rounded-xl border border-border/70 bg-card/75 p-3.5 text-xs shadow-sm backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md space-y-3">
-      {/* Head */}
       {/* Head: Icon + Name + Status Pill */}
       <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2.5">
         <div className="flex items-center gap-2 min-w-0">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/80 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border/50">
-            {provider === 'antigravity' ? 'AG' : provider === 'codex' ? 'CX' : provider === 'xai' ? 'X' : provider.slice(0, 2)}
+            {provider === 'antigravity' ? 'AG' : provider === 'codex' ? 'CX' : provider === 'xai' ? 'X' : provider === 'claude' ? 'CL' : provider.slice(0, 2)}
           </span>
           <span
             className="font-mono text-xs font-semibold text-foreground truncate max-w-[180px] sm:max-w-[200px]"
@@ -665,26 +676,43 @@ function CPAMCCredentialCard({
           </span>
         </div>
         <StatusBadge
-          variant={file.disabled ? 'neutral' : file.status === 'error' ? 'danger' : 'success'}
-          label={file.disabled ? 'Disabled' : file.status === 'error' ? 'Error' : 'Active'}
+          variant={file.disabled ? 'neutral' : file.status === 'error' || remainingCooldownSec > 0 ? 'danger' : 'success'}
+          label={file.disabled ? 'Disabled' : remainingCooldownSec > 0 ? (cooldownFormatted ? `冷却中 (${cooldownFormatted})` : 'Cooldown') : file.status === 'error' ? 'Error' : 'Active'}
           size="sm"
         />
       </div>
 
-      {/* Plan / Tier Chip */}
+      {/* Plan / Tier Chip + Reset Credits */}
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
         <div>
           {t('Plan')}:{' '}
           <span className="font-bold text-foreground uppercase">
-            {displayPlanType || '--'}
+            {displayPlanType ? (displayPlanType.toLowerCase() === 'pro' ? '专业版' : displayPlanType.toUpperCase()) : '--'}
           </span>
         </div>
-        {file.subscription_to && (
+        {displayResetCredits !== undefined ? (
+          <div className="text-[11px]">
+            <span>剩余重置次数: </span>
+            <span className={`font-bold tabular-nums ${displayResetCredits > 0 ? 'text-primary font-mono' : 'text-foreground'}`}>
+              {displayResetCredits}
+            </span>
+          </div>
+        ) : file.subscription_to && !isNaN(new Date(file.subscription_to).getTime()) ? (
           <span className="text-[10px] text-muted-foreground">
             {t('Renew')}: {new Date(file.subscription_to).toLocaleDateString()}
           </span>
-        )}
+        ) : null}
       </div>
+
+      {/* Cooldown Alert Banner if limited */}
+      {remainingCooldownSec > 0 && (
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-destructive/10 border border-destructive/20 text-[11px] text-destructive">
+          <Clock className="h-3 w-3 shrink-0" />
+          <span className="truncate">
+            {primaryCooldown?.reason === 'credential_quota' ? '额度耗尽冷却中' : '服务限流冷却中'}，预计 {cooldownFormatted} 后解禁
+          </span>
+        </div>
+      )}
 
       {/* Provider-specific Quotas */}
       {/* 1. Codex Provider (1:1 with CPAMC QuotaCard: 剩余百分比与对应颜色) */}
@@ -711,7 +739,7 @@ function CPAMCCredentialCard({
       {/* 2. Antigravity Provider (1:1 with CPAMC) */}
       {provider === 'antigravity' && (
         <div className="space-y-2.5 pt-1">
-          {antigravityDetail?.groups && antigravityDetail.groups.length > 0 ? (
+          {Array.isArray(antigravityDetail?.groups) && antigravityDetail.groups.length > 0 ? (
             antigravityDetail.groups.map((group) => (
               <div key={group.id} className="space-y-1.5 rounded bg-muted/20 p-2 border border-border/40">
                 <div className="flex items-center justify-between text-[11px] font-semibold text-foreground">
@@ -723,7 +751,7 @@ function CPAMCCredentialCard({
                   </div>
                 )}
                 <div className="space-y-1.5 pt-1">
-                  {group.buckets.map((b) => (
+                  {(group.buckets || []).map((b) => (
                     <QuotaProgress
                       key={b.id}
                       label={b.label}
@@ -751,7 +779,7 @@ function CPAMCCredentialCard({
                 label={t('Weekly Limit')}
                 usedLabel={`已用 ${xaiDetail.weekly_used_percent}%`}
                 remaining={xaiDetail.weekly_remaining_percent ?? Math.max(0, 100 - xaiDetail.weekly_used_percent)}
-                resetAfter={xaiDetail.weekly_reset_after ? new Date(xaiDetail.weekly_reset_after).toLocaleDateString() : undefined}
+                resetAfter={xaiDetail.weekly_reset_after && !isNaN(new Date(xaiDetail.weekly_reset_after).getTime()) ? new Date(xaiDetail.weekly_reset_after).toLocaleDateString() : undefined}
               />
               <QuotaProgress
                 label={`GrokBuild ${t('Usage')}`}
@@ -770,7 +798,7 @@ function CPAMCCredentialCard({
       {/* 4. Claude Provider */}
       {provider === 'claude' && (
         <div className="space-y-2 pt-1">
-          {claudeDetail?.windows && claudeDetail.windows.length > 0 ? (
+          {Array.isArray(claudeDetail?.windows) && claudeDetail.windows.length > 0 ? (
             claudeDetail.windows.map((win) => (
               <QuotaProgress
                 key={win.id}
@@ -819,8 +847,28 @@ function CPAMCCredentialCard({
               >
                 <RotateCcw className="h-3 w-3" />
                 {t('Reset Quota')}
-                {typeof availableResetCredits === 'number' && (
-                  <span className="ml-0.5 tabular-nums">({availableResetCredits})</span>
+                {typeof availableCodexResetCredits === 'number' && (
+                  <span className="ml-0.5 tabular-nums">({availableCodexResetCredits})</span>
+                )}
+              </Button>
+            )}
+            {provider === 'claude' && onResetCodex && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[11px] px-2 gap-1 border-primary/40 hover:bg-primary/10 text-primary font-medium shadow-none disabled:border-border disabled:text-muted-foreground disabled:hover:bg-transparent"
+                onClick={onResetCodex}
+                disabled={!canResetClaude}
+                title={
+                  canResetClaude
+                    ? t('Consume 1 reset credit to reset 5-hour and weekly limits')
+                    : t('No reset credits remaining')
+                }
+              >
+                <RotateCcw className="h-3 w-3" />
+                {t('Reset Quota')}
+                {typeof availableClaudeResetCredits === 'number' && (
+                  <span className="ml-0.5 tabular-nums">({availableClaudeResetCredits})</span>
                 )}
               </Button>
             )}
