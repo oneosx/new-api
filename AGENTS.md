@@ -201,13 +201,18 @@ This file is not tracked by git, so these rules survive `git merge upstream/main
 - Build with: `CGO_ENABLED=0 GOWORK=off GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=v1.0.0-rc.51'" -o new-api .`
 - Put build traceability in the image label only: `org.opencontainers.image.revision=<sha>`.
 
-### Header branding
+### Header branding and logo sizing
 
-The top bar shows the logo image only. It MUST NOT show the system name text or the version badge.
+The top bar shows the logo image only, at the logo's own aspect ratio. It MUST NOT show the system name text, the version badge, or a square crop of the logo.
 
 - `web/src/components/layout/components/app-header.tsx`: keep only `<SystemBrand variant='inline' />`; upstream adds `<SystemUpdateAction presentation='version' />` here — delete it again (and its import) after every merge.
-- `web/src/components/layout/components/public-header.tsx`: same — upstream adds `<SystemUpdateAction presentation='version' />` next to the site name; delete it and its import.
-- `web/src/components/layout/components/system-brand.tsx`, `inline` variant: render only the `<img>` logo; do not restore the `<span>{name}</span>` text.
+- `web/src/components/layout/components/public-header.tsx`: upstream adds `<SystemUpdateAction presentation='version' />` next to the site name — delete it and its import. This file also renders its own brand `<span>{displaySiteName}</span>` next to the logo; delete that span and the now-unused `displaySiteName`/`customSiteName`/`systemName` bindings, and give the logo link an `aria-label`.
+- `web/src/components/layout/components/system-brand.tsx`: the `inline` variant renders only the `<img>` logo — do not restore the `<span>{name}</span>` text.
+- **Logo aspect ratio (all header/footer logos):** the site logo is a wide wordmark (currently `logo.png` is 200x40, 5:1). Never put it in a square box or crop it. Use a fixed height with auto width and `object-contain`:
+  - `header-logo.tsx`: `h-6 w-auto max-w-[10rem] object-contain` (light and dark variants); do not restore `w-6`/`rounded-full`.
+  - `public-header.tsx`: wrapper `h-7 w-auto` (not `size-7`), image `h-full w-auto rounded-lg object-contain` (not `size-full`), skeleton `h-full w-24`.
+  - `system-brand.tsx`: `inline` wrapper `h-5 w-auto`, image `h-full w-auto rounded-md object-contain`; `sidebar` wrapper `h-8 w-auto`, image `h-full w-auto rounded-lg object-contain` — never `object-cover` or `aspect-square`.
+  - `footer.tsx`: image `h-7 w-auto rounded-lg object-contain` (not `size-7`).
 - The update checker itself MUST stay available at Settings → Maintenance (`web/src/features/system-settings/maintenance/update-checker-section.tsx`).
 
 ### Removed feature: CPA nodes
