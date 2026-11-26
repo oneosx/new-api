@@ -36,7 +36,6 @@ import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
 import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authenticated/chat/$chatId'
-import { Route as AuthenticatedCpaNodesIndexRouteImport } from './routes/_authenticated/cpa-nodes/index'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
@@ -212,12 +211,6 @@ const AuthenticatedChatChatIdRoute = AuthenticatedChatChatIdRouteImport.update({
   path: '/chat/$chatId',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedCpaNodesIndexRoute =
-  AuthenticatedCpaNodesIndexRouteImport.update({
-    id: '/cpa-nodes/',
-    path: '/cpa-nodes/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedDashboardIndexRoute =
   AuthenticatedDashboardIndexRouteImport.update({
     id: '/dashboard/',
@@ -481,7 +474,6 @@ export interface FileRoutesByFullPath {
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
-  '/cpa-nodes/': typeof AuthenticatedCpaNodesIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/intelligence-bench/': typeof AuthenticatedIntelligenceBenchIndexRoute
   '/keys/': typeof AuthenticatedKeysIndexRoute
@@ -547,7 +539,6 @@ export interface FileRoutesByTo {
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
-  '/cpa-nodes': typeof AuthenticatedCpaNodesIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/intelligence-bench': typeof AuthenticatedIntelligenceBenchIndexRoute
   '/keys': typeof AuthenticatedKeysIndexRoute
@@ -617,7 +608,6 @@ export interface FileRoutesById {
   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/_authenticated/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
-  '/_authenticated/cpa-nodes/': typeof AuthenticatedCpaNodesIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/_authenticated/intelligence-bench/': typeof AuthenticatedIntelligenceBenchIndexRoute
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
@@ -686,7 +676,6 @@ export interface FileRouteTypes {
     | '/usage-logs/$section'
     | '/usage-logs/audit'
     | '/channels/'
-    | '/cpa-nodes/'
     | '/dashboard/'
     | '/intelligence-bench/'
     | '/keys/'
@@ -752,7 +741,6 @@ export interface FileRouteTypes {
     | '/usage-logs/$section'
     | '/usage-logs/audit'
     | '/channels'
-    | '/cpa-nodes'
     | '/dashboard'
     | '/intelligence-bench'
     | '/keys'
@@ -821,7 +809,6 @@ export interface FileRouteTypes {
     | '/_authenticated/usage-logs/$section'
     | '/_authenticated/usage-logs/audit'
     | '/_authenticated/channels/'
-    | '/_authenticated/cpa-nodes/'
     | '/_authenticated/dashboard/'
     | '/_authenticated/intelligence-bench/'
     | '/_authenticated/keys/'
@@ -1066,13 +1053,6 @@ declare module '@tanstack/react-router' {
       path: '/chat/$chatId'
       fullPath: '/chat/$chatId'
       preLoaderRoute: typeof AuthenticatedChatChatIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/cpa-nodes/': {
-      id: '/_authenticated/cpa-nodes/'
-      path: '/cpa-nodes'
-      fullPath: '/cpa-nodes/'
-      preLoaderRoute: typeof AuthenticatedCpaNodesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard/': {
@@ -1450,7 +1430,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsageLogsSectionRoute: typeof AuthenticatedUsageLogsSectionRoute
   AuthenticatedUsageLogsAuditRoute: typeof AuthenticatedUsageLogsAuditRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
-  AuthenticatedCpaNodesIndexRoute: typeof AuthenticatedCpaNodesIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
   AuthenticatedIntelligenceBenchIndexRoute: typeof AuthenticatedIntelligenceBenchIndexRoute
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
@@ -1480,7 +1459,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedUsageLogsSectionRoute: AuthenticatedUsageLogsSectionRoute,
   AuthenticatedUsageLogsAuditRoute: AuthenticatedUsageLogsAuditRoute,
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
-  AuthenticatedCpaNodesIndexRoute: AuthenticatedCpaNodesIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   AuthenticatedIntelligenceBenchIndexRoute:
     AuthenticatedIntelligenceBenchIndexRoute,

@@ -24,7 +24,6 @@ const (
 	SystemTaskTypeModelUpdate    = "model_update"
 	SystemTaskTypeMidjourneyPoll = "midjourney_poll"
 	SystemTaskTypeAsyncTaskPoll  = "async_task_poll"
-	SystemTaskTypeCpaProbe       = "cpa_probe"
 	SystemTaskTypeChannelBalance = "channel_balance"
 	SystemTaskTypeCleanup        = "system_task_cleanup"
 

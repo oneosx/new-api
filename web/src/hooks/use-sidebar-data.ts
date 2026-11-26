@@ -141,11 +141,6 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
             icon: Radio,
           },
           {
-            title: t('CPA Nodes'),
-            url: '/cpa-nodes',
-            icon: Server,
-          },
-          {
             title: t('Models'),
             url: '/models/metadata',
             icon: Box,
