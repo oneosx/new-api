@@ -48,7 +48,7 @@ export function HeaderLogo({
           src={src}
           alt={alt}
           className={cn(
-            'h-6 w-6 rounded-full transition-opacity duration-200 dark:hidden',
+            'h-6 w-auto max-w-[10rem] object-contain transition-opacity duration-200 dark:hidden',
             !loading && logoLoaded ? 'opacity-100' : 'opacity-0',
             className
           )}
@@ -58,7 +58,7 @@ export function HeaderLogo({
           src={darkSrc}
           alt={alt}
           className={cn(
-            'h-6 w-6 rounded-full transition-opacity duration-200 hidden dark:block',
+            'h-6 w-auto max-w-[10rem] object-contain transition-opacity duration-200 hidden dark:block',
             !loading && logoLoaded ? 'opacity-100' : 'opacity-0',
             className
           )}
@@ -72,7 +72,7 @@ export function HeaderLogo({
       src={src}
       alt={alt}
       className={cn(
-        'h-6 w-6 rounded-full transition-opacity duration-200',
+        'h-6 w-auto max-w-[10rem] object-contain transition-opacity duration-200',
         !loading && logoLoaded ? 'opacity-100' : 'opacity-0',
         className
       )}
