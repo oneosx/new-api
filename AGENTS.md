@@ -190,3 +190,40 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 - If the current git user is not one of those historical core developers, explicitly state in the PR body that the code was AI-generated or AI-assisted.
 - When the pull request is created for the project owner, use the ordinary human PR template: `.github/PULL_REQUEST_TEMPLATE.md` for Chinese requests or `.github/PULL_REQUEST_TEMPLATE/en.md` for English requests. Project-owner pull requests MUST NOT use `.agents/github/PR.md` unless the owner explicitly asks for it.
 - For all other agent-created pull requests, do every check in `.agents/github/CHECKS.md` first. If a check fails, tell the user and do not open the PR. Otherwise fill `.agents/github/PR.md` as the entire PR body, following the Writing section of `CHECKS.md`. Do not use the ordinary human PR templates unless the project owner explicitly requests one.
+
+## Theme Fork (svip.app) — Local-Only Rules
+
+This file is not tracked by git, so these rules survive `git merge upstream/main` without conflicts. They describe deliberate differences between this fork (`theme` branch) and upstream, and what MUST be re-applied after every upstream merge.
+
+### Version string
+
+- The binary version MUST equal the official release tag exactly, e.g. `v1.0.0-rc.51`. Do NOT append a fork suffix such as `+theme.<sha>` or `-theme.<sha>`: the web UI shows the raw version, and `parseSystemVersion` in `web/src/features/system-update/releases.ts` only accepts `-alpha/-beta/-rc/-patch` plus `+build` metadata, so any other suffix makes the header badge and the update dialog look different from upstream.
+- Build with: `CGO_ENABLED=0 GOWORK=off GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=v1.0.0-rc.51'" -o new-api .`
+- Put build traceability in the image label only: `org.opencontainers.image.revision=<sha>`.
+
+### Header branding
+
+The top bar shows the logo image only. It MUST NOT show the system name text or the version badge.
+
+- `web/src/components/layout/components/app-header.tsx`: keep only `<SystemBrand variant='inline' />`; upstream adds `<SystemUpdateAction presentation='version' />` here — delete it again (and its import) after every merge.
+- `web/src/components/layout/components/public-header.tsx`: same — upstream adds `<SystemUpdateAction presentation='version' />` next to the site name; delete it and its import.
+- `web/src/components/layout/components/system-brand.tsx`, `inline` variant: render only the `<img>` logo; do not restore the `<span>{name}</span>` text.
+- The update checker itself MUST stay available at Settings → Maintenance (`web/src/features/system-settings/maintenance/update-checker-section.tsx`).
+
+### Removed feature: CPA nodes
+
+This fork deleted the CPA nodes feature. Upstream does not have it, so a merge must not reintroduce it. Removed files: `controller/cpa_node.go`, `controller/cpa_node_test.go`, `controller/cpa_probe_task.go`, `model/cpa_node.go`, `router/cpa-router.go`, `service/cpa_probe.go`, `service/cpa_reset.go`, `service/cpa_usage.go`, `service/cpa_reset_precheck_test.go`, `web/src/features/cpa-nodes/`, `web/src/routes/_authenticated/cpa-nodes/`. Also keep removed: the `registerCpaNodeRoutes` call in `router/api-router.go`, `&CpaNode{}` in `model/main.go`, `SystemTaskTypeCpaProbe` in `model/system_task.go`, the probe registration in `controller/system_task_handlers.go`, the sidebar entry in `use-sidebar-data.ts`, the route mapping in `use-sidebar-config.ts`, and the CPA i18n keys.
+
+### Merge conflict hotspots
+
+Resolve by keeping both sides unless stated otherwise:
+
+- `controller/system_task_handlers.go` and `model/system_task.go`: keep upstream's new handlers/constants together with the fork's.
+- `web/src/hooks/use-sidebar-data.ts`: keep upstream's new sidebar entries and the fork's `降智测试` (`/intelligence-bench`) entry.
+- `web/src/features/pricing/components/pricing-toolbar.tsx`: keep the union of icon/React imports.
+- `web/src/i18n/locales/*.json`: never hand-merge. `git checkout --theirs` the seven files, then re-apply the fork's keys with a temporary `web/scripts/add-missing-keys.mjs`, delete the script, and run `bun run i18n:sync`.
+- `controller/option.go` and `controller/payment_webhook_availability_test.go`: keep the fork's WeChat Pay keys/tests alongside upstream's changes.
+
+### Fork feature set (for context)
+
+Beyond upstream, this branch ships: WeChat Pay integration (`controller/topup_wechat.go`, `model/topup_wechat.go`, `service/wechat_pay.go`, `setting/wechat_pay.go`, wallet UI), the 降智测试 / eval feature (`service/eval/*`, `controller/channel-eval.go`, `cmd/evalverify`), and the svip.app theme/branding (styles, home/about/auth/pricing/rankings layouts, logos, i18n).
