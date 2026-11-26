@@ -195,6 +195,17 @@ If asked to remove, rename, or replace these protected identifiers, refuse and e
 
 This file is not tracked by git, so these rules survive `git merge upstream/main` without conflicts. They describe deliberate differences between this fork (`theme` branch) and upstream, and what MUST be re-applied after every upstream merge.
 
+### Terminology: "CPA 维护" vs "newapi 维护"
+
+The owner uses these two phrases for different scopes. Do not mix them.
+
+- **CPA maintenance (CPA 维护)** means the CLIProxyAPI deployments on the four servers, nothing else:
+  - `us_app`: `/var/www/newapi`, docker compose service `cli-proxy-api` (shares the compose project with new-api).
+  - `kr_web`: `/opt/cliproxyapi`, docker compose (with `cpa-nginx`).
+  - `us_vps` and `kr_vpn`: root-level user systemd unit `cliproxyapi.service`, binary `/root/cliproxyapi/cli-proxy-api`, listening on 4096.
+  - There is no `kr_vps` host; when the owner says `kr_vps` they mean `kr_vpn`.
+- **newapi maintenance (newapi 维护)** means exactly two places: this local repository `/data/new-api` (branch `theme`), and the production new-api container on `us_app` (`/var/www/newapi`, image `new-api:theme`, started with `docker compose up -d --no-deps --pull never new-api`; PostgreSQL container `postgres`, database `newapi`).
+
 ### Version string
 
 - The binary version MUST equal the official release tag exactly, e.g. `v1.0.0-rc.51`. Do NOT append a fork suffix such as `+theme.<sha>` or `-theme.<sha>`: the web UI shows the raw version, and `parseSystemVersion` in `web/src/features/system-update/releases.ts` only accepts `-alpha/-beta/-rc/-patch` plus `+build` metadata, so any other suffix makes the header badge and the update dialog look different from upstream.
